@@ -21,6 +21,9 @@ export interface GrantProgram {
   stages: string[];
   requiresNonprofit: boolean;
   url: string;
+  submissionType: "portal" | "email" | "invitation";
+  submissionEmail?: string;
+  portalLabel?: string;
 }
 
 export interface ScoredGrant extends GrantProgram {

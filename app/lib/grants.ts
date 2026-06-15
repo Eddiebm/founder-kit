@@ -13,6 +13,8 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Pre-seed", "Seed", "Series A"],
     requiresNonprofit: false,
     url: "https://www.anthropic.com/startups",
+    submissionType: "portal",
+    portalLabel: "Apply at anthropic.com/startups",
   },
   {
     id: "anthropic-nonprofit",
@@ -26,6 +28,8 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Nonprofit"],
     requiresNonprofit: true,
     url: "https://www.anthropic.com/nonprofits",
+    submissionType: "portal",
+    portalLabel: "Apply at anthropic.com/nonprofits",
   },
   {
     id: "gates-grand-challenges",
@@ -38,7 +42,9 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     geographies: ["Sub-Saharan Africa", "South Asia", "Southeast Asia", "Global"],
     stages: ["Pre-seed", "Seed", "Series A", "Nonprofit"],
     requiresNonprofit: false,
-    url: "https://www.gatesfoundation.org/about/commitments/grand-challenges",
+    url: "https://gcgh.grandchallenges.org",
+    submissionType: "portal",
+    portalLabel: "Apply at grandchallenges.org",
   },
   {
     id: "wellcome-innovations",
@@ -51,7 +57,9 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     geographies: ["Sub-Saharan Africa", "South Asia", "Southeast Asia", "Global"],
     stages: ["Seed", "Series A", "Nonprofit"],
     requiresNonprofit: false,
-    url: "https://wellcome.org/grant-funding",
+    url: "https://wellcome.org/grant-funding/schemes",
+    submissionType: "portal",
+    portalLabel: "Apply at wellcome.org",
   },
   {
     id: "usaid-div",
@@ -65,6 +73,9 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Pre-seed", "Seed", "Series A", "Nonprofit"],
     requiresNonprofit: false,
     url: "https://www.usaid.gov/div",
+    submissionType: "email",
+    submissionEmail: "div@usaid.gov",
+    portalLabel: "Email div@usaid.gov",
   },
   {
     id: "nih-sttr-sbir",
@@ -78,6 +89,8 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Pre-seed", "Seed"],
     requiresNonprofit: false,
     url: "https://grants.nih.gov/funding/sbir",
+    submissionType: "portal",
+    portalLabel: "Submit via Research.gov",
   },
   {
     id: "google-org-impact",
@@ -91,6 +104,8 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Seed", "Series A", "Nonprofit"],
     requiresNonprofit: false,
     url: "https://impactchallenge.withgoogle.com",
+    submissionType: "portal",
+    portalLabel: "Apply at impactchallenge.withgoogle.com",
   },
   {
     id: "skoll-foundation",
@@ -103,7 +118,9 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     geographies: ["Sub-Saharan Africa", "South Asia", "Southeast Asia", "Latin America", "Global"],
     stages: ["Series A", "Nonprofit"],
     requiresNonprofit: false,
-    url: "https://skoll.org",
+    url: "https://skoll.org/about/nominations",
+    submissionType: "invitation",
+    portalLabel: "Submit a nomination at skoll.org",
   },
   {
     id: "echoing-green",
@@ -117,6 +134,8 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Pre-seed", "Seed"],
     requiresNonprofit: false,
     url: "https://echoinggreen.org/fellowship",
+    submissionType: "portal",
+    portalLabel: "Apply at echoinggreen.org/fellowship",
   },
   {
     id: "omidyar-network",
@@ -129,7 +148,10 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     geographies: ["Sub-Saharan Africa", "South Asia", "Southeast Asia", "Latin America", "Global"],
     stages: ["Seed", "Series A"],
     requiresNonprofit: false,
-    url: "https://omidyar.com",
+    url: "https://omidyar.com/contact",
+    submissionType: "email",
+    submissionEmail: "contact@omidyar.com",
+    portalLabel: "Email contact@omidyar.com",
   },
   {
     id: "mozilla-tech-fund",
@@ -143,6 +165,8 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Pre-seed", "Seed", "Nonprofit"],
     requiresNonprofit: false,
     url: "https://foundation.mozilla.org/en/what-we-fund/awards",
+    submissionType: "portal",
+    portalLabel: "Apply at foundation.mozilla.org",
   },
   {
     id: "macarthur-100change",
@@ -156,6 +180,8 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Series A", "Nonprofit"],
     requiresNonprofit: false,
     url: "https://www.macfound.org/programs/100change",
+    submissionType: "portal",
+    portalLabel: "Apply at macfound.org",
   },
   {
     id: "rockefeller",
@@ -169,6 +195,9 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Seed", "Series A", "Nonprofit"],
     requiresNonprofit: false,
     url: "https://www.rockefellerfoundation.org/grants",
+    submissionType: "email",
+    submissionEmail: "grants@rockefellerfoundation.org",
+    portalLabel: "Email grants@rockefellerfoundation.org",
   },
   {
     id: "menlo-anthology",
@@ -182,6 +211,9 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Pre-seed", "Seed"],
     requiresNonprofit: false,
     url: "https://anthology.vc",
+    submissionType: "email",
+    submissionEmail: "portfolio@anthology.vc",
+    portalLabel: "Email portfolio@anthology.vc",
   },
   {
     id: "mcgovern",
@@ -195,5 +227,7 @@ export const GRANT_PROGRAMS: GrantProgram[] = [
     stages: ["Seed", "Series A", "Nonprofit"],
     requiresNonprofit: false,
     url: "https://www.mcgovern.org/what-we-fund",
+    submissionType: "portal",
+    portalLabel: "Apply at mcgovern.org",
   },
 ];

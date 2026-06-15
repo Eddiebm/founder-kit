@@ -38,6 +38,15 @@ function PitchContent() {
   const [generated, setGenerated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [applicantName, setApplicantName] = useState("");
+  const [applicantEmail, setApplicantEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<{
+    sentToFunder: boolean;
+    funderEmail: string | null;
+    portalUrl: string | null;
+  } | null>(null);
 
   const companyParams = new URLSearchParams(profile as unknown as Record<string, string>).toString();
 
@@ -87,6 +96,31 @@ function PitchContent() {
     await navigator.clipboard.writeText(pitch);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleSubmitApplication() {
+    if (!baseGrant || !applicantName.trim() || !applicantEmail.trim()) return;
+    setSubmitting(true);
+    try {
+      const scoredGrant = { ...baseGrant, fitScore: "High" as const, fitRationale: "" };
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile, grant: scoredGrant, pitch, factChecks, applicantName, applicantEmail }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setSubmitResult(data);
+      setShowSubmitModal(false);
+      if (data.portalUrl) {
+        window.open(data.portalUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+      setShowSubmitModal(false);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleDownload() {
@@ -184,8 +218,16 @@ function PitchContent() {
                 Download .txt
               </button>
               {generated && (
-                <button onClick={handleGenerate} className="flex items-center gap-1.5 text-sm bg-[#1a5c3a] hover:bg-[#174d31] text-white px-3 py-1.5 rounded-lg transition">
+                <button onClick={handleGenerate} className="flex items-center gap-1.5 text-sm bg-white border border-gray-200 hover:border-[#1a5c3a] text-gray-700 hover:text-[#1a5c3a] px-3 py-1.5 rounded-lg transition">
                   ↺ Regenerate
+                </button>
+              )}
+              {generated && (
+                <button
+                  onClick={() => setShowSubmitModal(true)}
+                  className="flex items-center gap-1.5 text-sm bg-[#1a5c3a] hover:bg-[#174d31] text-white font-semibold px-4 py-1.5 rounded-lg transition shadow-sm"
+                >
+                  Submit Application →
                 </button>
               )}
             </div>
@@ -197,6 +239,21 @@ function PitchContent() {
               Writing…
             </div>
           )}
+        </div>
+      )}
+
+      {submitResult && (
+        <div className={`mt-4 rounded-xl p-4 border ${submitResult.sentToFunder ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"}`}>
+          <p className={`font-semibold text-sm mb-1 ${submitResult.sentToFunder ? "text-green-800" : "text-blue-800"}`}>
+            {submitResult.sentToFunder
+              ? `Application sent to ${submitResult.funderEmail} and emailed to you!`
+              : "Application emailed to you — portal opening now"}
+          </p>
+          <p className={`text-sm ${submitResult.sentToFunder ? "text-green-700" : "text-blue-700"}`}>
+            {submitResult.sentToFunder
+              ? "Check your inbox for a copy. The funder will be in touch if you move forward."
+              : `Paste your pitch into the portal at ${submitResult.portalUrl ?? baseGrant?.url}.`}
+          </p>
         </div>
       )}
 
@@ -219,6 +276,68 @@ function PitchContent() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSubmitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Submit Application</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {baseGrant?.submissionType === "email"
+                    ? `We'll email your pitch to ${baseGrant.submissionEmail} and send you a copy.`
+                    : "We'll email you a formatted copy and open the grant portal."}
+                </p>
+              </div>
+              <button onClick={() => setShowSubmitModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none ml-4">×</button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Your full name</label>
+                <input
+                  type="text"
+                  value={applicantName}
+                  onChange={(e) => setApplicantName(e.target.value)}
+                  placeholder="Jane Smith"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#1a5c3a] focus:outline-none focus:ring-2 focus:ring-[#1a5c3a]/20"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Your email address</label>
+                <input
+                  type="email"
+                  value={applicantEmail}
+                  onChange={(e) => setApplicantEmail(e.target.value)}
+                  placeholder="jane@yourorg.org"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#1a5c3a] focus:outline-none focus:ring-2 focus:ring-[#1a5c3a]/20"
+                />
+              </div>
+
+              {baseGrant?.submissionType === "invitation" && (
+                <div className="bg-blue-50 rounded-lg px-3 py-2.5 text-sm text-blue-700">
+                  This grant is nomination-only — we&apos;ll email you the formatted pitch and open the nominations page.
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowSubmitModal(false)}
+                  className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitApplication}
+                  disabled={submitting || !applicantName.trim() || !applicantEmail.trim()}
+                  className="flex-1 bg-[#1a5c3a] hover:bg-[#174d31] disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-semibold transition"
+                >
+                  {submitting ? "Sending…" : baseGrant?.submissionType === "email" ? "Send to Funder" : "Email Me & Open Portal"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
