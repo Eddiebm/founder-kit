@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { CompanyProfile, ScoredGrant } from "@/lib/types";
+
+type ApplyStatus = "idle" | "generating" | "sending" | "done" | "error";
+
+interface GrantProgress {
+  grant: ScoredGrant;
+  status: ApplyStatus;
+  sentToFunder: boolean;
+}
 
 function FitBadge({ score }: { score: "High" | "Medium" | "Low" }) {
   const styles = {
@@ -24,6 +32,254 @@ function Spinner() {
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <div className="w-12 h-12 border-4 border-[#1a5c3a]/20 border-t-[#1a5c3a] rounded-full animate-spin" />
       <p className="text-gray-500 text-sm">Claude is scoring grants against your profile…</p>
+    </div>
+  );
+}
+
+function StatusIcon({ status }: { status: ApplyStatus }) {
+  if (status === "done") return <span className="text-green-500 text-lg">✓</span>;
+  if (status === "error") return <span className="text-red-500 text-lg">✗</span>;
+  if (status === "generating" || status === "sending") {
+    return <div className="w-4 h-4 border-2 border-[#1a5c3a]/30 border-t-[#1a5c3a] rounded-full animate-spin" />;
+  }
+  return <div className="w-4 h-4 rounded-full border border-gray-300" />;
+}
+
+function statusLabel(status: ApplyStatus, sentToFunder: boolean) {
+  if (status === "idle") return "Waiting…";
+  if (status === "generating") return "Writing pitch…";
+  if (status === "sending") return "Sending application…";
+  if (status === "done") return sentToFunder ? "Sent to funder ✓" : "Emailed to you ✓";
+  if (status === "error") return "Error — skipped";
+  return "";
+}
+
+async function generatePitch(profile: CompanyProfile, grant: ScoredGrant): Promise<string> {
+  const res = await fetch("/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profile, grant }),
+  });
+  if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    fullText += decoder.decode(value, { stream: true });
+  }
+  return fullText;
+}
+
+async function submitApplication(
+  profile: CompanyProfile,
+  grant: ScoredGrant,
+  pitch: string,
+  factChecks: string[],
+  applicantName: string,
+  applicantEmail: string
+): Promise<{ sentToFunder: boolean; funderEmail: string | null; portalUrl: string | null }> {
+  const res = await fetch("/api/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profile, grant, pitch, factChecks, applicantName, applicantEmail }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function AutoApplyPanel({
+  highFitGrants,
+  profile,
+}: {
+  highFitGrants: ScoredGrant[];
+  profile: CompanyProfile;
+}) {
+  const [name, setName] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("fk_applicant_name") ?? "";
+    return "";
+  });
+  const [email, setEmail] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("fk_applicant_email") ?? "";
+    return "";
+  });
+  const [running, setRunning] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [progress, setProgress] = useState<GrantProgress[]>([]);
+  const abortRef = useRef(false);
+
+  const updateStatus = useCallback(
+    (grantId: string, patch: Partial<GrantProgress>) => {
+      setProgress((prev) => prev.map((p) => (p.grant.id === grantId ? { ...p, ...patch } : p)));
+    },
+    []
+  );
+
+  async function handleAutoApply() {
+    if (!name.trim() || !email.trim()) return;
+    localStorage.setItem("fk_applicant_name", name.trim());
+    localStorage.setItem("fk_applicant_email", email.trim());
+
+    abortRef.current = false;
+    const initial: GrantProgress[] = highFitGrants.map((g) => ({
+      grant: g,
+      status: "idle",
+      sentToFunder: false,
+    }));
+    setProgress(initial);
+    setRunning(true);
+    setFinished(false);
+
+    for (const entry of initial) {
+      if (abortRef.current) break;
+      const { grant } = entry;
+
+      updateStatus(grant.id, { status: "generating" });
+      let pitch = "";
+      try {
+        pitch = await generatePitch(profile, grant);
+      } catch {
+        updateStatus(grant.id, { status: "error" });
+        continue;
+      }
+
+      if (abortRef.current) break;
+      updateStatus(grant.id, { status: "sending" });
+
+      const splitIdx = pitch.indexOf("---FACT_CHECK---");
+      const pitchText = splitIdx !== -1 ? pitch.slice(0, splitIdx).trim() : pitch.trim();
+      const factChecks =
+        splitIdx !== -1
+          ? pitch
+              .slice(splitIdx + "---FACT_CHECK---".length)
+              .trim()
+              .split("\n")
+              .map((l) => l.replace(/^[•\-*]\s*/, "").trim())
+              .filter(Boolean)
+          : [];
+
+      try {
+        const result = await submitApplication(
+          profile,
+          grant,
+          pitchText,
+          factChecks,
+          name.trim(),
+          email.trim()
+        );
+
+        updateStatus(grant.id, { status: "done", sentToFunder: result.sentToFunder });
+
+        if (result.portalUrl && grant.submissionType !== "email") {
+          window.open(result.portalUrl, "_blank", "noopener,noreferrer");
+          await new Promise((r) => setTimeout(r, 800));
+        }
+      } catch {
+        updateStatus(grant.id, { status: "error" });
+      }
+    }
+
+    setRunning(false);
+    setFinished(true);
+  }
+
+  if (highFitGrants.length === 0) return null;
+
+  const emailGrants = highFitGrants.filter((g) => g.submissionType === "email");
+  const portalGrants = highFitGrants.filter((g) => g.submissionType !== "email");
+  const doneCount = progress.filter((p) => p.status === "done").length;
+
+  return (
+    <div className="mb-8 bg-gradient-to-br from-[#1a5c3a] to-[#174d31] rounded-2xl p-6 text-white shadow-lg">
+      <div className="flex items-start gap-4 mb-5">
+        <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <h2 className="text-lg font-bold">Auto-Apply to {highFitGrants.length} High-Fit Grant{highFitGrants.length !== 1 ? "s" : ""}</h2>
+          <p className="text-white/70 text-sm mt-0.5">
+            {emailGrants.length > 0 && `${emailGrants.length} sent directly to funders`}
+            {emailGrants.length > 0 && portalGrants.length > 0 && " · "}
+            {portalGrants.length > 0 && `${portalGrants.length} emailed to you + portal opened`}
+          </p>
+        </div>
+      </div>
+
+      {!running && !finished && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+            <div>
+              <label className="block text-white/70 text-xs font-medium mb-1">Your full name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Jane Smith"
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-white/50"
+              />
+            </div>
+            <div>
+              <label className="block text-white/70 text-xs font-medium mb-1">Your email address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="jane@yourorg.org"
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-white/50"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleAutoApply}
+            disabled={!name.trim() || !email.trim()}
+            className="w-full bg-white text-[#1a5c3a] font-bold py-3 rounded-xl hover:bg-green-50 disabled:opacity-40 transition text-sm shadow"
+          >
+            Apply to All {highFitGrants.length} Grants Now →
+          </button>
+        </>
+      )}
+
+      {(running || finished) && (
+        <div className="space-y-2">
+          {progress.map((p) => (
+            <div
+              key={p.grant.id}
+              className={`flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3 transition-all ${
+                p.status === "done" ? "bg-white/20" : ""
+              }`}
+            >
+              <StatusIcon status={p.status} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{p.grant.name}</p>
+                <p className="text-xs text-white/60">{statusLabel(p.status, p.sentToFunder)}</p>
+              </div>
+              <span className="text-xs text-white/50 shrink-0">{p.grant.awardRange}</span>
+            </div>
+          ))}
+
+          {running && (
+            <button
+              onClick={() => { abortRef.current = true; }}
+              className="w-full text-white/60 text-xs mt-2 hover:text-white/90 transition"
+            >
+              Cancel remaining
+            </button>
+          )}
+
+          {finished && (
+            <div className="mt-4 bg-white/10 rounded-xl px-4 py-3 text-center">
+              <p className="font-bold text-base">
+                {doneCount} of {highFitGrants.length} applications submitted
+              </p>
+              <p className="text-white/70 text-sm mt-0.5">Check your inbox for portal grants. Funder emails are on their way.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -86,7 +342,7 @@ function ResultsContent() {
 
   return (
     <div>
-      <div className="mb-8">
+      <div className="mb-6">
         <div className="flex items-center gap-3 mb-4">
           <Link href="/grants" className="text-[#1a5c3a] text-sm hover:underline">← Edit Profile</Link>
           <span className="text-gray-300">|</span>
@@ -99,6 +355,8 @@ function ResultsContent() {
         </h2>
         <p className="text-gray-500">{highFit.length} high fit · {medFit.length} medium fit · {lowFit.length} low fit</p>
       </div>
+
+      <AutoApplyPanel highFitGrants={highFit} profile={profile} />
 
       <div className="space-y-4">
         {grants.map((grant) => (
@@ -122,9 +380,21 @@ function ResultsContent() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <a href={grant.url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#1a5c3a] hover:underline">
-                View grant website ↗
-              </a>
+              <div className="flex items-center gap-3">
+                <a href={grant.url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#1a5c3a] hover:underline">
+                  View grant website ↗
+                </a>
+                {grant.submissionType === "email" && (
+                  <span className="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5 font-medium">
+                    Direct email submission
+                  </span>
+                )}
+                {grant.submissionType === "invitation" && (
+                  <span className="text-xs bg-purple-100 text-purple-700 rounded-full px-2 py-0.5 font-medium">
+                    Nomination only
+                  </span>
+                )}
+              </div>
               <Link
                 href={`/grants/pitch?grantId=${grant.id}&${companyParams}`}
                 className="inline-flex items-center gap-1.5 bg-[#1a5c3a] hover:bg-[#174d31] text-white text-sm font-semibold px-4 py-2 rounded-xl transition"
