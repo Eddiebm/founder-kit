@@ -208,9 +208,9 @@ function PitchContent() {
 
       {pitch && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h3 className="text-lg font-bold text-gray-900">Your Pitch Draft</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button onClick={handleCopy} className="flex items-center gap-1.5 text-sm bg-white border border-gray-200 hover:border-[#1a5c3a] text-gray-700 hover:text-[#1a5c3a] px-3 py-1.5 rounded-lg transition">
                 {copied ? "✓ Copied!" : "Copy"}
               </button>
@@ -227,12 +227,12 @@ function PitchContent() {
                   onClick={() => setShowSubmitModal(true)}
                   className="flex items-center gap-1.5 text-sm bg-[#1a5c3a] hover:bg-[#174d31] text-white font-semibold px-4 py-1.5 rounded-lg transition shadow-sm"
                 >
-                  Submit Application →
+                  Submit →
                 </button>
               )}
             </div>
           </div>
-          <textarea value={pitch} onChange={(e) => setPitch(e.target.value)} rows={20} className="w-full rounded-xl border border-gray-200 px-4 py-4 text-sm text-gray-800 leading-relaxed focus:border-[#1a5c3a] focus:outline-none focus:ring-2 focus:ring-[#1a5c3a]/20 transition resize-y font-mono" />
+          <textarea value={pitch} onChange={(e) => setPitch(e.target.value)} rows={16} className="w-full rounded-xl border border-gray-200 px-4 py-4 text-sm text-gray-800 leading-relaxed focus:border-[#1a5c3a] focus:outline-none focus:ring-2 focus:ring-[#1a5c3a]/20 transition resize-y font-mono min-h-[200px]" />
           {generating && pitch && (
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <div className="w-3 h-3 border-2 border-gray-300 border-t-[#1a5c3a] rounded-full animate-spin" />
@@ -281,8 +281,8 @@ function PitchContent() {
         </div>
       )}
       {showSubmitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 px-0 sm:px-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Submit Application</h3>

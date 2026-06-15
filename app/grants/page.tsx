@@ -51,13 +51,13 @@ export default function GrantsPage() {
         <div className="inline-flex items-center gap-2 bg-[#1a5c3a]/10 text-[#1a5c3a] rounded-full px-4 py-1.5 text-sm font-medium mb-4">
           Step 1 of 3 — Organization Profile
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Find matching grants</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Find matching grants</h2>
         <p className="text-gray-500 text-base">
           Claude will score 15 grant programs against your profile and draft a pitch for any you choose.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-8 space-y-5 sm:space-y-6">
         <div>
           <label className={lbl} htmlFor="companyName">Organization / Company Name</label>
           <input id="companyName" name="companyName" type="text" placeholder="e.g. HealthBridge Africa" value={form.companyName} onChange={handleChange} className={inp} />

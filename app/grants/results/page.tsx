@@ -350,8 +350,8 @@ function ResultsContent() {
             Step 2 of 3 — Grant Discovery
           </div>
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          {grants.length} grants matched for <span className="text-[#1a5c3a]">{profile.companyName}</span>
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+          {grants.length} grants matched for <span className="text-[#1a5c3a] break-words">{profile.companyName}</span>
         </h2>
         <p className="text-gray-500">{highFit.length} high fit · {medFit.length} medium fit · {lowFit.length} low fit</p>
       </div>

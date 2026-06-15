@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </div>
         </header>
-        <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-8">{children}</main>
+        <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 sm:py-8">{children}</main>
         <footer className="border-t border-gray-200 bg-white">
           <div className="max-w-5xl mx-auto px-4 py-4 text-center text-xs text-gray-400">
             Founder Kit · Documents and pitches are AI-generated — always verify with a licensed attorney before filing or submitting.

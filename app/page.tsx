@@ -3,11 +3,11 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <div className="max-w-3xl mx-auto pt-8">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-3">
+      <div className="text-center mb-10">
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
           Build your company.<br />Fund your mission.
         </h1>
-        <p className="text-lg text-gray-500 max-w-xl mx-auto">
+        <p className="text-base sm:text-lg text-gray-500 max-w-xl mx-auto">
           Two tools. Form your entity in any US state and generate grant pitches with AI — no lawyers, no agency fees.
         </p>
       </div>
@@ -28,7 +28,7 @@ export default function HomePage() {
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             {["50 states + DC", "C-Corp", "Nonprofit", "Hybrid"].map((t) => (
-              <span key={t} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-0.5 font-medium">
+              <span key={t} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-1 font-medium">
                 {t}
               </span>
             ))}
@@ -49,11 +49,11 @@ export default function HomePage() {
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Grant Automator</h2>
           <p className="text-sm text-gray-500 leading-relaxed flex-1">
-            Fill out a 9-field profile. Claude scores 15 grant programs for fit and writes a tailored pitch draft for any you choose — with a fact-check list before you submit.
+            Fill out a 9-field profile. Claude scores 100+ grants (plus a live web search) for fit and auto-applies to all high-fit programs with a tailored pitch — one click.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            {["15 grants", "AI scoring", "Pitch draft", "Fact-check"].map((t) => (
-              <span key={t} className="text-xs bg-green-50 text-green-700 border border-green-100 rounded-full px-2.5 py-0.5 font-medium">
+            {["100+ grants", "Live web search", "Pitch draft", "Auto-apply"].map((t) => (
+              <span key={t} className="text-xs bg-green-50 text-green-700 border border-green-100 rounded-full px-2.5 py-1 font-medium">
                 {t}
               </span>
             ))}
