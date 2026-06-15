@@ -1,0 +1,129 @@
+export const runtime = "edge";
+
+import type { CompanyProfile, ScoredGrant } from "@/lib/types";
+
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const MODEL = "anthropic/claude-sonnet-4-6";
+
+interface GenerateRequest {
+  profile: CompanyProfile;
+  grant: ScoredGrant;
+}
+
+export async function POST(request: Request) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set");
+
+  const { profile, grant }: GenerateRequest = await request.json();
+
+  const profileSummary = `Organization: ${profile.companyName}
+Description: ${profile.oneLiner}
+Stage: ${profile.stage}
+Focus area: ${profile.focusArea}
+Geography: ${profile.geography}
+Revenue model: ${profile.revenueModel}
+Annual budget: ${profile.annualBudget}
+Registered nonprofit: ${profile.isNonprofit}
+Impact: ${profile.impactDescription}`.trim();
+
+  const grantSummary = `Grant program: ${grant.name}
+Funder: ${grant.funder}
+Award range: ${grant.awardRange}
+Eligibility: ${grant.eligibilitySummary}
+Why we're a fit: ${grant.fitRationale}`.trim();
+
+  const res = await fetch(OPENROUTER_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1500,
+      stream: true,
+      messages: [
+        {
+          role: "user",
+          content: `You are a professional grant writer helping a social enterprise founder write a compelling pitch for a specific grant program.
+
+ORGANIZATION PROFILE:
+${profileSummary}
+
+TARGET GRANT:
+${grantSummary}
+
+Write a tailored pitch application for this specific grant. Requirements:
+- Exactly 3-4 paragraphs
+- Open with a compelling hook that speaks directly to the funder's mission and priorities
+- Paragraph 2: describe the problem and the organization's specific solution with concrete details
+- Paragraph 3: highlight impact evidence, milestones achieved, or a credible plan with specific targets
+- Final paragraph: clear, specific ask — mention the award amount, how the funds will be used (with 2-3 specific line items), and expected outcomes
+
+Style guidelines:
+- Use the organization's real name and actual focus area throughout — never use generic placeholders
+- Reference the grant program and funder by name at least once
+- Be specific about geography, population served, and mechanisms of change
+- Write in first person plural (we/our)
+- Professional but human tone — not corporate jargon
+- Do NOT include a subject line or greeting — start directly with the pitch prose
+
+After the pitch, add a section starting exactly with the text:
+---FACT_CHECK---
+Then list 4-6 specific claims or statistics that the founder should verify before submitting, as a bulleted list starting each line with "• ".`,
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok || !res.body) {
+    console.error("OpenRouter error:", res.status);
+    return new Response("Internal server error", { status: 500 });
+  }
+
+  // Pass the SSE stream through, extracting text deltas
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const chunk = JSON.parse(data);
+              const text = chunk.choices?.[0]?.delta?.content;
+              if (typeof text === "string") {
+                controller.enqueue(encoder.encode(text));
+              }
+            } catch {
+              // skip malformed SSE lines
+            }
+          }
+        }
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
