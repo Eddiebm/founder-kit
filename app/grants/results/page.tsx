@@ -380,10 +380,15 @@ function ResultsContent() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <a href={grant.url} target="_blank" rel="noopener noreferrer" className="text-sm text-[#1a5c3a] hover:underline">
                   View grant website ↗
                 </a>
+                {grant.source === "web" && (
+                  <span className="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-medium">
+                    🔍 Found on the web
+                  </span>
+                )}
                 {grant.submissionType === "email" && (
                   <span className="text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5 font-medium">
                     Direct email submission

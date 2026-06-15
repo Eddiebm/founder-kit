@@ -29,4 +29,5 @@ export interface GrantProgram {
 export interface ScoredGrant extends GrantProgram {
   fitScore: "High" | "Medium" | "Low";
   fitRationale: string;
+  source?: "database" | "web";
 }
