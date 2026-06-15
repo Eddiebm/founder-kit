@@ -2,6 +2,8 @@ export const runtime = "edge";
 
 import { GRANT_PROGRAMS } from "@/lib/grants";
 import type { CompanyProfile, ScoredGrant } from "@/lib/types";
+import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { getMonthlyCount, getLimit, recordUsage } from "@/lib/usage";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "anthropic/claude-sonnet-4-6";
@@ -201,6 +203,19 @@ export async function POST(request: Request) {
   const openrouterKey = process.env.OPENROUTER_API_KEY;
   if (!openrouterKey) throw new Error("OPENROUTER_API_KEY is not set");
 
+  const token = getTokenFromRequest(request);
+  const session = token ? await verifyToken(token) : null;
+  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const count = await getMonthlyCount(session.sub, "score");
+  const limit = getLimit(session.plan, "score");
+  if (count >= limit) {
+    return Response.json(
+      { error: "Monthly search limit reached. Upgrade to Pro for unlimited searches." },
+      { status: 429 }
+    );
+  }
+
   const profile: CompanyProfile = await request.json();
   const exaKey = process.env.EXA_API_KEY;
 
@@ -230,6 +245,8 @@ export async function POST(request: Request) {
     const existingNames = new Set(GRANT_PROGRAMS.map((g) => g.name));
     webGrants = await extractWebGrants(webResults, profile, openrouterKey, existingNames);
   }
+
+  await recordUsage(session.sub, "score");
 
   // Merge: web High-fit grants first, then database sorted, then web Medium/Low
   const webHigh = webGrants.filter((g) => g.fitScore === "High");

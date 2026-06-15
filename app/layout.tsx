@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import "./globals.css";
+import NavBar from "./components/NavBar";
+import { verifyToken } from "./lib/auth";
 
 export const metadata: Metadata = {
   title: "Founder Kit",
   description: "Form your company in any US state, find matching grants, and generate pitch drafts — all in one place.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("app_session")?.value;
+  const session = token ? await verifyToken(token) : null;
+  const user = session
+    ? { name: session.name, email: session.email, plan: session.plan }
+    : null;
+
   return (
     <html lang="en">
       <body className="min-h-screen bg-[#F0F4FA] flex flex-col">
@@ -21,17 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
               <span className="font-bold text-gray-900 text-base tracking-tight">Founder Kit</span>
             </Link>
-            <nav className="flex items-center gap-1">
-              <Link href="/wizard" className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
-                Formation
-              </Link>
-              <Link href="/grants" className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
-                Grants
-              </Link>
-              <Link href="/register" className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
-                Register
-              </Link>
-            </nav>
+            <NavBar user={user} />
           </div>
         </header>
         <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 sm:py-8">{children}</main>

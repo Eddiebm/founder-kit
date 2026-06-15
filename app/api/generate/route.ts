@@ -1,6 +1,8 @@
 export const runtime = "edge";
 
 import type { CompanyProfile, ScoredGrant } from "@/lib/types";
+import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { getMonthlyCount, getLimit, recordUsage } from "@/lib/usage";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "anthropic/claude-sonnet-4-6";
@@ -14,7 +16,18 @@ export async function POST(request: Request) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set");
 
+  const token = getTokenFromRequest(request);
+  const session = token ? await verifyToken(token) : null;
+  if (!session) return new Response("Unauthorized", { status: 401 });
+
+  const count = await getMonthlyCount(session.sub, "generate");
+  const limit = getLimit(session.plan, "generate");
+  if (count >= limit) {
+    return new Response("Monthly generation limit reached. Upgrade to Pro for unlimited pitch generation.", { status: 429 });
+  }
+
   const { profile, grant }: GenerateRequest = await request.json();
+  await recordUsage(session.sub, "generate");
 
   const fundingType = profile.fundingType || "grant";
   const isFellowship = fundingType.toLowerCase().includes("fellowship");
