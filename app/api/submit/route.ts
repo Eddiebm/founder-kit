@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Founder Kit <applications@founderkit.io>",
+      from: "Founder Kit <grants@bannermanmenson.com>",
       to: toAddresses,
       reply_to: applicantEmail,
       subject: `Grant Application: ${profile.companyName} — ${grant.name}`,
