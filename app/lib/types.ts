@@ -1,6 +1,7 @@
 export interface CompanyProfile {
   companyName: string;
   oneLiner: string;
+  fundingType: string;
   stage: string;
   focusArea: string;
   geography: string;

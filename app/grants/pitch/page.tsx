@@ -22,6 +22,7 @@ function PitchContent() {
   const profile: CompanyProfile = {
     companyName: searchParams.get("companyName") ?? "",
     oneLiner: searchParams.get("oneLiner") ?? "",
+    fundingType: searchParams.get("fundingType") ?? "",
     stage: searchParams.get("stage") ?? "",
     focusArea: searchParams.get("focusArea") ?? "",
     geography: searchParams.get("geography") ?? "",

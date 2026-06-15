@@ -14,7 +14,13 @@ interface ExaResult {
 }
 
 async function searchExa(profile: CompanyProfile, apiKey: string): Promise<ExaResult[]> {
-  const query = `grant funding opportunity ${profile.focusArea} ${profile.geography} ${profile.stage} organization 2024 2025`;
+  const fundingKeyword = profile.fundingType?.toLowerCase().includes("fellowship") ? "fellowship"
+    : profile.fundingType?.toLowerCase().includes("loan") ? "loan grant financing"
+    : profile.fundingType?.toLowerCase().includes("contract") ? "government contract RFP funding"
+    : profile.fundingType?.toLowerCase().includes("equity") ? "venture investment grant funding"
+    : profile.fundingType?.toLowerCase().includes("prize") ? "prize competition funding"
+    : "grant funding opportunity";
+  const query = `${fundingKeyword} ${profile.focusArea} ${profile.geography} ${profile.stage} 2024 2025`;
 
   const res = await fetch(EXA_URL, {
     method: "POST",
@@ -64,25 +70,26 @@ async function scoreDatabase(
       messages: [
         {
           role: "user",
-          content: `You are a grant matching expert. Score each grant program for this organization.
+          content: `You are a funding matching expert. Score each program for this applicant based on their stated funding type and profile.
 
-COMPANY PROFILE:
+APPLICANT PROFILE:
 ${profileSummary}
 
-GRANT PROGRAMS (JSON):
+FUNDING PROGRAMS (JSON):
 ${grantsJson}
 
-For each grant, respond with a JSON array. Each element must have exactly these fields:
-- "id": the grant id string
+For each program, respond with a JSON array. Each element must have exactly these fields:
+- "id": the program id string
 - "fitScore": exactly one of "High", "Medium", or "Low"
-- "fitRationale": a single specific sentence (15-25 words) explaining why this grant is or isn't a fit
+- "fitRationale": a single specific sentence (15-25 words) explaining the fit
 
 Scoring guidance:
-- High: 3+ alignment factors (focus area, geography, stage, nonprofit status all match)
-- Medium: 1-2 alignment factors match but some gaps exist
-- Low: significant eligibility or focus mismatches
+- Prioritize programs that match the stated funding type (${profile.fundingType || "grant"})
+- High: strong alignment on funding type, industry/focus, geography, and stage
+- Medium: partial alignment — some factors match, others don't
+- Low: significant mismatch in funding type, eligibility, or focus
 
-Be specific in rationales — reference the company's actual focus area and geography.
+Be specific in rationales — reference the applicant's actual industry and geography.
 
 Respond with ONLY the JSON array, no other text.`,
         },
@@ -178,15 +185,16 @@ Respond with ONLY the JSON array, no other text.`,
 }
 
 function buildProfileSummary(profile: CompanyProfile): string {
-  return `Company: ${profile.companyName}
+  return `Name: ${profile.companyName}
 One-liner: ${profile.oneLiner}
+Funding type sought: ${profile.fundingType}
 Stage: ${profile.stage}
-Focus area: ${profile.focusArea}
+Industry / Focus area: ${profile.focusArea}
 Geography: ${profile.geography}
-Revenue model: ${profile.revenueModel}
+Revenue / Business model: ${profile.revenueModel}
 Annual budget: ${profile.annualBudget}
-Registered nonprofit: ${profile.isNonprofit}
-Impact description: ${profile.impactDescription}`.trim();
+Nonprofit status: ${profile.isNonprofit}
+Description: ${profile.impactDescription}`.trim();
 }
 
 export async function POST(request: Request) {

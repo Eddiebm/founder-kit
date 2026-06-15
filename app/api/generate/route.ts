@@ -16,18 +16,25 @@ export async function POST(request: Request) {
 
   const { profile, grant }: GenerateRequest = await request.json();
 
-  const profileSummary = `Organization: ${profile.companyName}
-Description: ${profile.oneLiner}
-Stage: ${profile.stage}
-Focus area: ${profile.focusArea}
-Geography: ${profile.geography}
-Revenue model: ${profile.revenueModel}
-Annual budget: ${profile.annualBudget}
-Registered nonprofit: ${profile.isNonprofit}
-Impact: ${profile.impactDescription}`.trim();
+  const fundingType = profile.fundingType || "grant";
+  const isFellowship = fundingType.toLowerCase().includes("fellowship");
+  const isLoan = fundingType.toLowerCase().includes("loan");
+  const isContract = fundingType.toLowerCase().includes("contract");
 
-  const grantSummary = `Grant program: ${grant.name}
-Funder: ${grant.funder}
+  const profileSummary = `Name: ${profile.companyName}
+Description: ${profile.oneLiner}
+Funding type sought: ${fundingType}
+Stage: ${profile.stage}
+Industry / Focus area: ${profile.focusArea}
+Geography: ${profile.geography}
+Revenue / Business model: ${profile.revenueModel}
+Annual budget: ${profile.annualBudget}
+Nonprofit status: ${profile.isNonprofit}
+Description: ${profile.impactDescription}`.trim();
+
+  const programLabel = isFellowship ? "Fellowship program" : isLoan ? "Financing program" : isContract ? "Contract opportunity" : "Grant program";
+  const grantSummary = `${programLabel}: ${grant.name}
+Funder / Issuer: ${grant.funder}
 Award range: ${grant.awardRange}
 Eligibility: ${grant.eligibilitySummary}
 Why we're a fit: ${grant.fitRationale}`.trim();
@@ -45,26 +52,26 @@ Why we're a fit: ${grant.fitRationale}`.trim();
       messages: [
         {
           role: "user",
-          content: `You are a professional grant writer helping a social enterprise founder write a compelling pitch for a specific grant program.
+          content: `You are a professional writer helping an applicant write a compelling pitch for a specific funding opportunity.
 
-ORGANIZATION PROFILE:
+APPLICANT PROFILE:
 ${profileSummary}
 
-TARGET GRANT:
+TARGET OPPORTUNITY:
 ${grantSummary}
 
-Write a tailored pitch application for this specific grant. Requirements:
+Write a tailored pitch for this specific ${isFellowship ? "fellowship" : isLoan ? "financing" : isContract ? "contract" : "grant"}. Requirements:
 - Exactly 3-4 paragraphs
-- Open with a compelling hook that speaks directly to the funder's mission and priorities
-- Paragraph 2: describe the problem and the organization's specific solution with concrete details
-- Paragraph 3: highlight impact evidence, milestones achieved, or a credible plan with specific targets
-- Final paragraph: clear, specific ask — mention the award amount, how the funds will be used (with 2-3 specific line items), and expected outcomes
+- Open with a compelling hook that speaks directly to the funder's/issuer's mission and priorities
+- Paragraph 2: describe the problem or opportunity and the applicant's specific solution or qualifications
+- Paragraph 3: highlight evidence, milestones, credentials, or a credible plan with specific targets
+- Final paragraph: clear, specific ask — mention the award amount or funding size, how funds will be used (2-3 line items), and expected outcomes
 
 Style guidelines:
-- Use the organization's real name and actual focus area throughout — never use generic placeholders
-- Reference the grant program and funder by name at least once
-- Be specific about geography, population served, and mechanisms of change
-- Write in first person plural (we/our)
+- Use the applicant's real name/org name and actual focus area throughout — never generic placeholders
+- Reference the ${programLabel.toLowerCase()} and funder/issuer by name at least once
+- ${isFellowship ? "Write in first person singular (I/my) — this is an individual applicant" : "Write in first person plural (we/our)"}
+- Be specific about geography, audience served, and mechanisms of change
 - Professional but human tone — not corporate jargon
 - Do NOT include a subject line or greeting — start directly with the pitch prose
 
