@@ -2,7 +2,18 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const FEDERAL_FUNDERS = [
+  "National Institutes of Health", "National Science Foundation", "USAID",
+  "USDA", "National Endowment for the Arts", "National Endowment for the Humanities",
+  "Department of Energy", "ARPA-E", "Department of Defense", "DARPA",
+  "Small Business Administration", "In-Q-Tel", "HHS", "EPA", "EDA",
+];
+
+function isFederal(funder: string) {
+  return FEDERAL_FUNDERS.some((f) => funder.includes(f));
+}
 import type { CompanyProfile, ScoredGrant } from "@/lib/types";
 
 type ApplyStatus = "idle" | "generating" | "sending" | "done" | "error";
@@ -330,6 +341,10 @@ function ResultsContent() {
   const highFit = grants.filter((g) => g.fitScore === "High");
   const medFit = grants.filter((g) => g.fitScore === "Medium");
   const lowFit = grants.filter((g) => g.fitScore === "Low");
+  const federalMatches = useMemo(
+    () => grants.filter((g) => (g.fitScore === "High" || g.fitScore === "Medium") && isFederal(g.funder)),
+    [grants]
+  );
 
   if (loading) return <Spinner />;
   if (error) {
@@ -356,6 +371,30 @@ function ResultsContent() {
         </h2>
         <p className="text-gray-500">{highFit.length} high fit · {medFit.length} medium fit · {lowFit.length} low fit</p>
       </div>
+
+      {federalMatches.length > 0 && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-amber-900 text-sm">
+              {federalMatches.length} federal grant{federalMatches.length !== 1 ? "s" : ""} matched — SAM.gov registration required
+            </p>
+            <p className="text-amber-700 text-xs mt-0.5">
+              Federal applications are rejected without active SAM.gov, Grants.gov, and agency-specific registrations. Takes 7–14 days.
+            </p>
+          </div>
+          <Link
+            href="/register"
+            className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold px-4 py-2 rounded-xl transition"
+          >
+            Start Registration →
+          </Link>
+        </div>
+      )}
 
       <AutoApplyPanel highFitGrants={highFit} profile={profile} />
 

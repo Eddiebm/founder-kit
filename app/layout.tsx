@@ -22,17 +22,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span className="font-bold text-gray-900 text-base tracking-tight">Founder Kit</span>
             </Link>
             <nav className="flex items-center gap-1">
-              <Link
-                href="/wizard"
-                className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-              >
+              <Link href="/wizard" className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
                 Formation
               </Link>
-              <Link
-                href="/grants"
-                className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-              >
+              <Link href="/grants" className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
                 Grants
+              </Link>
+              <Link href="/register" className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
+                Register
               </Link>
             </nav>
           </div>
