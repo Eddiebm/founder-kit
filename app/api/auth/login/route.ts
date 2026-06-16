@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import { getDb } from "@/lib/db";
 import { clearCookie, sessionCookie, signToken, verifyPassword } from "@/lib/auth";
 

@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import { GRANT_PROGRAMS } from "@/lib/grants";
 import type { CompanyProfile, ScoredGrant } from "@/lib/types";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";

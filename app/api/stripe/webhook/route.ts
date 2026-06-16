@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import { getDb } from "@/lib/db";
 
 async function verifyStripeSignature(body: string, signature: string, secret: string): Promise<boolean> {

@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import type { CompanyProfile, ScoredGrant } from "@/lib/types";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
 import { getMonthlyCount, getLimit, recordUsage } from "@/lib/usage";
