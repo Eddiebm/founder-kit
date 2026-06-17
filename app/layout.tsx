@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   description: "Search 100+ grants matched to your business, generate AI pitch drafts, auto-apply, and form your company in any US state — free to start.",
   metadataBase: new URL("https://myfounderkit.com"),
   alternates: { canonical: "/" },
+  verification: { google: "QT5fH2uS2rLZ8yHRudRT7g9BXQ0twC6w3S4C_8f3mGQ" },
   openGraph: {
     title: "Founder Kit — Find Grants & Form Your Company",
     description: "Search 100+ grants matched to your business, generate AI pitch drafts, and auto-apply — free to start.",
