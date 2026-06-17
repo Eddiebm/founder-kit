@@ -19,6 +19,7 @@ function BillingContent() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
+  const [managing, setManaging] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => {
@@ -26,6 +27,14 @@ function BillingContent() {
       setLoading(false);
     });
   }, []);
+
+  async function handleManage() {
+    setManaging(true);
+    const res = await fetch("/api/stripe/portal", { method: "POST" });
+    const { url } = await res.json();
+    if (url) window.location.href = url;
+    else setManaging(false);
+  }
 
   async function handleUpgrade() {
     setUpgrading(true);
@@ -125,9 +134,17 @@ function BillingContent() {
       )}
 
       {isPro && (
-        <p className="text-center text-sm text-gray-400 mt-4">
-          To cancel your subscription, email <a href="mailto:eddie@bannermanmenson.com" className="text-[#1a5c3a] hover:underline">eddie@bannermanmenson.com</a>
-        </p>
+        <div className="mt-5 bg-white rounded-2xl border border-gray-200 p-5">
+          <h3 className="font-semibold text-gray-900 text-sm mb-1">Manage subscription</h3>
+          <p className="text-xs text-gray-500 mb-4">Update your payment method, download invoices, or cancel — all from the Stripe customer portal.</p>
+          <button
+            onClick={handleManage}
+            disabled={managing}
+            className="w-full border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition disabled:opacity-50"
+          >
+            {managing ? "Opening portal…" : "Manage subscription →"}
+          </button>
+        </div>
       )}
     </div>
   );

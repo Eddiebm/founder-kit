@@ -20,6 +20,37 @@ async function verifyStripeSignature(body: string, signature: string, secret: st
   return expected === sig;
 }
 
+async function sendPaymentFailedEmail(email: string, name: string | null, portalUrl: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+  const firstName = name?.split(" ")[0] ?? "there";
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Founder Kit <noreply@bannermanmenson.com>",
+      to: [email],
+      subject: "Action required: your Founder Kit payment failed",
+      html: `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:32px 16px;">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+    <div style="background:#dc2626;padding:24px 32px;">
+      <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">Payment failed</h1>
+    </div>
+    <div style="padding:32px;">
+      <p style="margin:0 0 16px;color:#374151;font-size:15px;">Hi ${firstName},</p>
+      <p style="margin:0 0 16px;color:#374151;font-size:15px;">We couldn't process your Founder Kit Pro payment. Your account is still active, but we'll need a valid payment method to keep it that way.</p>
+      <p style="margin:0 0 24px;color:#374151;font-size:15px;">Please update your payment details before your next billing attempt to avoid losing Pro access.</p>
+      <a href="${portalUrl}" style="display:inline-block;background:#1a5c3a;color:#fff;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none;">Update Payment Method</a>
+      <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">If you believe this is an error, reply to this email and we'll sort it out.</p>
+    </div>
+  </div>
+</body></html>`,
+    }),
+  }).catch((err) => console.error("PAYMENT_FAILED_EMAIL_ERROR:", err));
+}
+
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
@@ -52,6 +83,40 @@ export async function POST(request: Request) {
       "UPDATE users SET plan = 'free' WHERE stripe_subscription_id = $1",
       [sub.id]
     );
+  }
+
+  if (event.type === "invoice.payment_failed") {
+    const invoice = event.data.object;
+    const customerId = invoice.customer;
+    if (!customerId) return Response.json({ ok: true });
+
+    const rows = await db(
+      "SELECT email, name FROM users WHERE stripe_customer_id = $1",
+      [customerId]
+    ) as { email: string; name: string | null }[];
+
+    if (!rows.length) return Response.json({ ok: true });
+
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://myfounderkit.com";
+
+    let portalUrl = `${appUrl}/billing`;
+    if (stripeKey) {
+      const portalRes = await fetch("https://api.stripe.com/v1/billing_portal/sessions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${stripeKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ customer: customerId, return_url: `${appUrl}/billing` }),
+      });
+      if (portalRes.ok) {
+        const portalData: { url: string } = await portalRes.json();
+        portalUrl = portalData.url;
+      }
+    }
+
+    await sendPaymentFailedEmail(rows[0].email, rows[0].name, portalUrl);
   }
 
   return Response.json({ ok: true });
