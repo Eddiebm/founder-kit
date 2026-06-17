@@ -51,8 +51,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </header>
         <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 sm:py-8">{children}</main>
         <footer className="border-t border-gray-200 bg-white">
-          <div className="max-w-5xl mx-auto px-4 py-4 text-center text-xs text-gray-400">
-            Founder Kit · Documents and pitches are AI-generated — always verify with a licensed attorney before filing or submitting.
+          <div className="max-w-5xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
+            <span>Founder Kit · AI-generated content — always verify with a licensed attorney before filing or submitting.</span>
+            <div className="flex items-center gap-4">
+              <a href="mailto:hello@myfounderkit.com" className="hover:text-gray-600 transition">Contact</a>
+              <Link href="/privacy" className="hover:text-gray-600 transition">Privacy</Link>
+              <Link href="/terms" className="hover:text-gray-600 transition">Terms</Link>
+            </div>
           </div>
         </footer>
       </body>
