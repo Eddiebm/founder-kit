@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import "./globals.css";
 import NavBar from "./components/NavBar";
+import PostHogProvider from "./components/PostHogProvider";
 import { verifyToken } from "./lib/auth";
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body className="min-h-screen bg-[#F0F4FA] flex flex-col">
+        <PostHogProvider>
         <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2.5">
@@ -60,6 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </div>
         </footer>
+        </PostHogProvider>
       </body>
     </html>
   );
