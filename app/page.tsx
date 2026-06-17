@@ -81,6 +81,38 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Free</p>
+          <p className="text-2xl font-bold text-gray-900 mb-4">$0 <span className="text-sm font-normal text-gray-400">/ month</span></p>
+          <ul className="space-y-2 text-sm text-gray-600">
+            {["5 grant searches / month", "10 AI pitch drafts / month", "Full formation wizard", "Federal registration guide"].map((f) => (
+              <li key={f} className="flex items-center gap-2">
+                <span className="text-green-500 font-bold text-base">✓</span> {f}
+              </li>
+            ))}
+          </ul>
+          <Link href="/auth" className="mt-5 block text-center text-sm font-semibold text-[#1B3F7B] border border-[#1B3F7B]/30 rounded-xl py-2.5 hover:bg-blue-50 transition">
+            Get started free
+          </Link>
+        </div>
+
+        <div className="bg-[#1B3F7B] rounded-2xl p-6 text-white">
+          <p className="text-xs font-semibold text-blue-300 uppercase tracking-wide mb-1">Pro</p>
+          <p className="text-2xl font-bold mb-4">$19 <span className="text-sm font-normal text-blue-300">/ month</span></p>
+          <ul className="space-y-2 text-sm text-blue-100">
+            {["Unlimited grant searches", "Unlimited pitch drafts", "Full formation wizard", "Federal registration guide"].map((f) => (
+              <li key={f} className="flex items-center gap-2">
+                <span className="text-blue-300 font-bold text-base">✓</span> {f}
+              </li>
+            ))}
+          </ul>
+          <Link href="/billing" className="mt-5 block text-center text-sm font-semibold bg-white text-[#1B3F7B] rounded-xl py-2.5 hover:bg-blue-50 transition">
+            Upgrade to Pro
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
