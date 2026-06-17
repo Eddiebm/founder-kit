@@ -7,7 +7,7 @@ import { getDb } from "@/lib/db";
 // 4. HUMANIZE  — Claude Opus 4.8: strips AI-isms, adds voice, varies rhythm
 // POST { topic, slug, keyword, tags }
 
-const OPUS = "anthropic/claude-opus-4-8";
+const WRITER = "anthropic/claude-sonnet-4-6";
 const FLASH = "google/gemini-2.5-flash";
 
 async function ai(
@@ -107,7 +107,7 @@ Output JSON:
   } catch { /* use defaults */ }
 
   // ── PASS 2: DRAFT (Claude Opus 4.8) ───────────────────────────────────────
-  const draftRaw = await ai(OPUS, `You are writing the definitive, most useful guide on the internet about "${topic}" for US founders, nonprofit leaders, and small business owners.
+  const draftRaw = await ai(WRITER, `You are writing the definitive, most useful guide on the internet about "${topic}" for US founders, nonprofit leaders, and small business owners.
 
 RESEARCH BRIEF:
 - Target keyword: "${keyword}"
@@ -151,7 +151,7 @@ Output JSON:
   let scores: Record<string, number> = {};
 
   try {
-    const editRaw = await ai(OPUS, `You are a senior editor doing a quality pass on a draft article. Be ruthless.
+    const editRaw = await ai(WRITER, `You are a senior editor doing a quality pass on a draft article. Be ruthless.
 
 DRAFT:
 Title: ${draft.title}
@@ -188,7 +188,7 @@ Output JSON:
   let finalContent = editedContent;
 
   try {
-    const humanRaw = await ai(OPUS, `You are a professional editor specializing in making AI-generated content read like it was written by a sharp, experienced human practitioner.
+    const humanRaw = await ai(WRITER, `You are a professional editor specializing in making AI-generated content read like it was written by a sharp, experienced human practitioner.
 
 ARTICLE TO HUMANIZE:
 ---
