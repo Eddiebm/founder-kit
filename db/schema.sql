@@ -28,3 +28,11 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   expires_at  TIMESTAMPTZ NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS blog_verifications (
+  slug TEXT PRIMARY KEY,
+  verified BOOLEAN NOT NULL DEFAULT false,
+  flagged_claims JSONB NOT NULL DEFAULT '[]',
+  last_verified_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

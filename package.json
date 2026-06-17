@@ -10,9 +10,12 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "@tailwindcss/typography": "^0.5.20",
     "@types/pg": "^8.20.0",
+    "gray-matter": "^4.0.3",
     "jose": "^6.2.3",
     "next": "^16.2.9",
+    "next-mdx-remote": "^6.0.0",
     "pg": "^8.21.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
