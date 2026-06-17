@@ -6,8 +6,22 @@ import NavBar from "./components/NavBar";
 import { verifyToken } from "./lib/auth";
 
 export const metadata: Metadata = {
-  title: "Founder Kit",
-  description: "Form your company in any US state, find matching grants, and generate pitch drafts — all in one place.",
+  title: "Founder Kit — Find Grants & Form Your Company",
+  description: "Search 100+ grants matched to your business, generate AI pitch drafts, auto-apply, and form your company in any US state — free to start.",
+  metadataBase: new URL("https://myfounderkit.com"),
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "Founder Kit — Find Grants & Form Your Company",
+    description: "Search 100+ grants matched to your business, generate AI pitch drafts, and auto-apply — free to start.",
+    url: "https://myfounderkit.com",
+    siteName: "Founder Kit",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Founder Kit — Find Grants & Form Your Company",
+    description: "Search 100+ grants matched to your business, generate AI pitch drafts, and auto-apply — free to start.",
+  },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

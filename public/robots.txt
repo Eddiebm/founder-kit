@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /billing
+Disallow: /auth
+
+Sitemap: https://myfounderkit.com/sitemap.xml
