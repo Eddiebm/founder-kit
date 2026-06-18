@@ -308,15 +308,31 @@ function AutoApplyPanel({
   );
 }
 
-function BookmarkButton({ grant, profile, savedIds, onToggle }: {
+function BookmarkButton({ grant, profile, savedIds, onToggle, isLoggedIn }: {
   grant: ScoredGrant;
   profile: CompanyProfile;
   savedIds: Set<string>;
   onToggle: (id: string, saved: boolean) => void;
+  isLoggedIn: boolean;
 }) {
   const isSaved = savedIds.has(grant.id);
   const [busy, setBusy] = useState(false);
   const ph = usePostHog();
+
+  if (!isLoggedIn) {
+    return (
+      <Link
+        href="/auth"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-400 hover:border-amber-300 hover:text-amber-600 transition"
+        title="Sign in to save"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+        </svg>
+        Save
+      </Link>
+    );
+  }
 
   async function toggle() {
     setBusy(true);
@@ -355,7 +371,9 @@ function ResultsContent() {
   const [grants, setGrants] = useState<ScoredGrant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [anonLimit, setAnonLimit] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const ph = usePostHog();
 
   const profile: CompanyProfile = {
@@ -380,8 +398,9 @@ function ResultsContent() {
           body: JSON.stringify(profile),
         });
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+          const data = await res.json().catch(() => ({})) as { error?: string; anon?: boolean };
+          if (res.status === 429 && data.anon) { setAnonLimit(true); return; }
+          throw new Error(data.error ?? `HTTP ${res.status}`);
         }
         const data = await res.json();
         setGrants(data);
@@ -400,9 +419,13 @@ function ResultsContent() {
     }
     async function fetchSaved() {
       const res = await fetch("/api/grants/save").catch(() => null);
-      if (!res?.ok) return;
-      const rows = await res.json() as { grant_id: string }[];
-      setSavedIds(new Set(rows.map((r) => r.grant_id)));
+      if (res?.status === 200) {
+        setIsLoggedIn(true);
+        const rows = await res.json() as { grant_id: string }[];
+        setSavedIds(new Set(rows.map((r) => r.grant_id)));
+      } else {
+        setIsLoggedIn(false);
+      }
     }
     fetchGrants();
     fetchSaved();
@@ -427,6 +450,7 @@ function ResultsContent() {
   );
 
   if (loading) return <Spinner />;
+  if (anonLimit) return <UpgradePrompt type="signup" />;
   if (error) {
     const isLimit = error.toLowerCase().includes("limit") || error.includes("429");
     if (isLimit) return <UpgradePrompt type="search" />;
@@ -487,7 +511,30 @@ function ResultsContent() {
         </div>
       )}
 
-      <AutoApplyPanel highFitGrants={highFit} profile={profile} />
+      {isLoggedIn
+        ? <AutoApplyPanel highFitGrants={highFit} profile={profile} />
+        : highFit.length > 0 && (
+          <div className="mb-8 bg-gradient-to-br from-[#1a5c3a] to-[#174d31] rounded-2xl p-6 text-white">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">Auto-Apply to {highFit.length} High-Fit Grant{highFit.length !== 1 ? "s" : ""}</h2>
+                <p className="text-white/70 text-sm mt-0.5">Create a free account to generate pitches and auto-apply — takes 30 seconds.</p>
+              </div>
+            </div>
+            <Link
+              href={`/auth?next=${encodeURIComponent(`/grants/results?${new URLSearchParams(profile as unknown as Record<string, string>).toString()}`)}`}
+              className="block w-full text-center bg-white text-[#1a5c3a] font-bold py-3 rounded-xl hover:bg-green-50 transition text-sm"
+            >
+              Sign up free to auto-apply →
+            </Link>
+          </div>
+        )
+      }
 
       <div className="space-y-4">
         {grants.map((grant) => (
@@ -532,9 +579,12 @@ function ResultsContent() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <BookmarkButton grant={grant} profile={profile} savedIds={savedIds} onToggle={toggleSaved} />
+                <BookmarkButton grant={grant} profile={profile} savedIds={savedIds} onToggle={toggleSaved} isLoggedIn={isLoggedIn} />
                 <Link
-                  href={`/grants/pitch?grantId=${grant.id}&${companyParams}`}
+                  href={isLoggedIn
+                    ? `/grants/pitch?grantId=${grant.id}&${companyParams}`
+                    : `/auth?next=${encodeURIComponent(`/grants/pitch?grantId=${grant.id}&${companyParams}`)}`
+                  }
                   className="inline-flex items-center gap-1.5 bg-[#1a5c3a] hover:bg-[#174d31] text-white text-sm font-semibold px-4 py-2 rounded-xl transition"
                 >
                   Generate Pitch →

@@ -2,6 +2,7 @@ import { GRANT_PROGRAMS } from "@/lib/grants";
 import type { CompanyProfile, ScoredGrant } from "@/lib/types";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
 import { getMonthlyCount, getLimit, recordUsage } from "@/lib/usage";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "anthropic/claude-sonnet-4-6";
@@ -203,15 +204,24 @@ export async function POST(request: Request) {
 
   const token = getTokenFromRequest(request);
   const session = token ? await verifyToken(token) : null;
-  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const count = await getMonthlyCount(session.sub, "score");
-  const limit = getLimit(session.plan, "score");
-  if (count >= limit) {
-    return Response.json(
-      { error: "Monthly search limit reached. Upgrade to Pro for unlimited searches." },
-      { status: 429 }
-    );
+  if (session) {
+    const count = await getMonthlyCount(session.sub, "score");
+    const limit = getLimit(session.plan, "score");
+    if (count >= limit) {
+      return Response.json(
+        { error: "Monthly search limit reached. Upgrade to Pro for unlimited searches." },
+        { status: 429 }
+      );
+    }
+  } else {
+    const { allowed, retryAfter } = await checkRateLimit(request, "grants-anon", 3, 86400); // 3/day for anonymous
+    if (!allowed) {
+      return Response.json(
+        { error: "You've used your 3 free searches today. Sign up free for more.", anon: true },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
+    }
   }
 
   const profile: CompanyProfile = await request.json();
@@ -244,7 +254,7 @@ export async function POST(request: Request) {
     webGrants = await extractWebGrants(webResults, profile, openrouterKey, existingNames);
   }
 
-  await recordUsage(session.sub, "score");
+  if (session) await recordUsage(session.sub, "score");
 
   // Merge: web High-fit grants first, then database sorted, then web Medium/Low
   const webHigh = webGrants.filter((g) => g.fitScore === "High");
