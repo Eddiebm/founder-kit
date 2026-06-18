@@ -3,7 +3,7 @@ import { verifyToken } from "./app/lib/auth";
 
 const PROTECTED = ["/grants", "/wizard", "/register", "/billing"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
