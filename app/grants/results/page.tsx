@@ -24,6 +24,7 @@ interface GrantProgress {
   grant: ScoredGrant;
   status: ApplyStatus;
   sentToFunder: boolean;
+  portalUrl?: string | null;
 }
 
 function FitBadge({ score }: { score: "High" | "Medium" | "Low" }) {
@@ -183,12 +184,11 @@ function AutoApplyPanel({
           email.trim()
         );
 
-        updateStatus(grant.id, { status: "done", sentToFunder: result.sentToFunder });
-
-        if (result.portalUrl && grant.submissionType !== "email") {
-          window.open(result.portalUrl, "_blank", "noopener,noreferrer");
-          await new Promise((r) => setTimeout(r, 800));
-        }
+        updateStatus(grant.id, {
+          status: "done",
+          sentToFunder: result.sentToFunder,
+          portalUrl: result.portalUrl ?? null,
+        });
       } catch {
         updateStatus(grant.id, { status: "error" });
       }
@@ -270,7 +270,18 @@ function AutoApplyPanel({
                 <p className="text-sm font-medium truncate">{p.grant.name}</p>
                 <p className="text-xs text-white/60">{statusLabel(p.status, p.sentToFunder)}</p>
               </div>
-              <span className="text-xs text-white/50 shrink-0">{p.grant.awardRange}</span>
+              {p.status === "done" && p.portalUrl ? (
+                <a
+                  href={p.portalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-amber-300 hover:text-amber-200 shrink-0 underline"
+                >
+                  Open portal →
+                </a>
+              ) : (
+                <span className="text-xs text-white/50 shrink-0">{p.grant.awardRange}</span>
+              )}
             </div>
           ))}
 
