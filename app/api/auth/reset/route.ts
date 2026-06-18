@@ -1,11 +1,17 @@
 import { getDb } from "@/lib/db";
 import { randomBytes, createHash } from "crypto";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 async function hashToken(token: string): Promise<string> {
   return createHash("sha256").update(token).digest("hex");
 }
 
 export async function POST(request: Request) {
+  const { allowed, retryAfter } = await checkRateLimit(request, "reset", 5, 3600); // 5/hour
+  if (!allowed) {
+    return Response.json({ ok: true }, { headers: { "Retry-After": String(retryAfter) } }); // silent — don't leak rate limit state
+  }
+
   try {
     const { email } = await request.json();
     if (!email) return Response.json({ ok: true }); // always succeed

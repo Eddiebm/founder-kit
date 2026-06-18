@@ -1,7 +1,16 @@
 import { getDb } from "@/lib/db";
 import { clearCookie, sessionCookie, signToken, verifyPassword } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export async function POST(request: Request) {
+  const { allowed, retryAfter } = await checkRateLimit(request, "login", 10, 900); // 10/15min
+  if (!allowed) {
+    return Response.json({ error: "Too many attempts. Try again later." }, {
+      status: 429,
+      headers: { "Retry-After": String(retryAfter) },
+    });
+  }
+
   const { email, password } = await request.json();
 
   if (!email || !password) {

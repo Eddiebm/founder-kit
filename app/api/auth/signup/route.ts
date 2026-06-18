@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db";
 import { hashPassword, sessionCookie, signToken } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 async function sendWelcomeEmail(email: string, name?: string) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -38,6 +39,14 @@ async function sendWelcomeEmail(email: string, name?: string) {
 }
 
 export async function POST(request: Request) {
+  const { allowed, retryAfter } = await checkRateLimit(request, "signup", 5, 3600); // 5/hour
+  if (!allowed) {
+    return Response.json({ error: "Too many attempts. Try again later." }, {
+      status: 429,
+      headers: { "Retry-After": String(retryAfter) },
+    });
+  }
+
   try {
     const { email, password, name } = await request.json();
 
