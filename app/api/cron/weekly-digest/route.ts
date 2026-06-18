@@ -84,6 +84,13 @@ export async function GET(req: Request) {
 
   const db = getDb();
 
+  await db(`
+    CREATE TABLE IF NOT EXISTS email_unsubscribes (
+      user_id UUID PRIMARY KEY,
+      unsubscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   // Get all users with at least one saved profile, excluding unsubscribed
   const rows = await db(`
     SELECT DISTINCT ON (u.id)
