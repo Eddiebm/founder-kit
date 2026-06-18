@@ -11,13 +11,18 @@ async function verifyStripeSignature(body: string, signature: string, secret: st
   const sig = parts["v1"];
   if (!timestamp || !sig) return false;
 
+  // Reject webhooks older than 5 minutes (replay attack prevention)
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
+
   const payload = `${timestamp}.${body}`;
   const key = await crypto.subtle.importKey(
     "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
   );
   const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
-  const expected = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return expected === sig;
+  const expected = new Uint8Array(mac);
+  const received = new Uint8Array(sig.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
+  if (expected.length !== received.length) return false;
+  return expected.every((b, i) => b === received[i]);
 }
 
 async function sendPaymentFailedEmail(email: string, name: string | null, portalUrl: string) {
