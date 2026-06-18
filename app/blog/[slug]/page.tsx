@@ -4,6 +4,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import { getArticle, getAllSlugs } from "@/lib/blog";
 import { getDb } from "@/lib/db";
 import type { Metadata } from "next";
+import EmailCapture from "@/components/EmailCapture";
 
 interface VerificationState {
   verified: boolean;
@@ -45,15 +46,53 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+const CATEGORY_CTA: Record<string, { heading: string; subtext: string; href: string; linkLabel: string }> = {
+  "Entity Formation": {
+    heading: "Ready to form your entity?",
+    subtext: "Founder Kit generates your Certificate of Incorporation, IP Assignment, and filing instructions for any US state.",
+    href: "/wizard",
+    linkLabel: "Start formation wizard →",
+  },
+  "Federal Registration": {
+    heading: "Ready to register federally?",
+    subtext: "Get a step-by-step checklist for your UEI number, CAGE code, and SAM.gov registration — required for any federal grant.",
+    href: "/register",
+    linkLabel: "Start federal registration →",
+  },
+  "Grants & Funding": {
+    heading: "Find grants you actually qualify for",
+    subtext: "Describe your business in 2 minutes. AI scores 100+ grants plus a live web search and ranks them by fit.",
+    href: "/grants",
+    linkLabel: "Find my grant matches →",
+  },
+};
+
 export default async function BlogArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const article = getArticle(slug);
   if (!article) notFound();
 
   const ver = await getVerification(slug);
+  const cta = CATEGORY_CTA[article.category] ?? CATEGORY_CTA["Grants & Funding"];
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: article.title,
+    description: article.description,
+    datePublished: article.date,
+    dateModified: article.date,
+    author: { "@type": "Organization", name: "Founder Kit", url: "https://myfounderkit.com" },
+    publisher: { "@type": "Organization", name: "Founder Kit", url: "https://myfounderkit.com" },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `https://myfounderkit.com/blog/${slug}` },
+  };
 
   return (
     <div className="max-w-2xl mx-auto py-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Link href="/blog" className="text-xs text-gray-400 hover:text-gray-600 transition mb-6 inline-block">← All articles</Link>
 
       {/* Verification status banner */}
@@ -98,12 +137,20 @@ export default async function BlogArticlePage({ params }: { params: Promise<{ sl
         <MDXRemote source={article.content} />
       </article>
 
-      <div className="mt-10 bg-[#1B3F7B] rounded-2xl p-6 text-white">
-        <h3 className="font-bold text-base mb-1">Skip the paperwork — use Founder Kit</h3>
-        <p className="text-blue-200 text-sm mb-4">Form your entity, register federally, and find matching grants in one place. Free to start.</p>
-        <Link href="/auth" className="inline-block bg-white text-[#1B3F7B] font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-50 transition">
-          Get started free →
-        </Link>
+      <div className="mt-10 space-y-4">
+        <EmailCapture
+          source={`blog-${slug}`}
+          heading="Get a free personalized grant match report"
+          subtext="We'll match your business to the top grants you qualify for and send them to your inbox. Free, no spam."
+        />
+
+        <div className="bg-[#1B3F7B] rounded-2xl p-6 text-white">
+          <h3 className="font-bold text-base mb-1">{cta.heading}</h3>
+          <p className="text-blue-200 text-sm mb-4">{cta.subtext}</p>
+          <Link href={cta.href} className="inline-block bg-white text-[#1B3F7B] font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-50 transition">
+            {cta.linkLabel}
+          </Link>
+        </div>
       </div>
 
       <p className="mt-6 text-xs text-gray-400 text-center">

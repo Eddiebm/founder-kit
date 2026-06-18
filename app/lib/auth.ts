@@ -75,6 +75,6 @@ export async function verifyPassword(password: string, stored: string): Promise<
 }
 
 export const PLAN_LIMITS = {
-  free:  { score: 2,   generate: 3 },
+  free:  { score: 5,   generate: 3 },
   pro:   { score: 999, generate: 999 },
 } as const;

@@ -1,40 +1,7 @@
 import Link from "next/link";
+import EmailCapture from "./components/EmailCapture";
 
 const features = [
-  {
-    href: "/wizard",
-    color: "#1B3F7B",
-    lightBg: "bg-blue-50",
-    lightText: "text-blue-700",
-    lightBorder: "border-blue-100",
-    hoverBorder: "hover:border-[#1B3F7B]/30",
-    ctaColor: "text-[#1B3F7B]",
-    icon: (
-      <path d="M3 19V8l8-5 8 5v11h-5v-5H8v5H3z" fill="white" />
-    ),
-    title: "Entity Formation",
-    description:
-      "Generate your Certificate of Incorporation, IP Assignment Agreement, and 501(c)(3) Purpose Narrative for any US state — then file directly online with the state and the IRS.",
-    tags: ["50 states + DC", "C-Corp", "Nonprofit", "Hybrid"],
-    cta: "Form your entity",
-  },
-  {
-    href: "/register",
-    color: "#7c3aed",
-    lightBg: "bg-purple-50",
-    lightText: "text-purple-700",
-    lightBorder: "border-purple-100",
-    hoverBorder: "hover:border-purple-300",
-    ctaColor: "text-purple-700",
-    icon: (
-      <path d="M11 2L4 6v6c0 4 3 7.4 7 8 4-.6 7-4 7-8V6l-7-4z" fill="white" />
-    ),
-    title: "Federal Registration",
-    description:
-      "Skip the SAM.gov maze. Get a step-by-step checklist to obtain your UEI number, CAGE code, and complete SAM registration — prerequisites for any federal grant or contract.",
-    tags: ["SAM.gov", "UEI number", "CAGE code", "NAICS codes"],
-    cta: "Start registration",
-  },
   {
     href: "/grants",
     color: "#b45309",
@@ -72,6 +39,40 @@ const features = [
     tags: ["AI pitch draft", "Auto-apply", "Fact-check list", "Email delivery"],
     cta: "Generate a pitch",
   },
+  {
+    href: "/wizard",
+    color: "#1B3F7B",
+    lightBg: "bg-blue-50",
+    lightText: "text-blue-700",
+    lightBorder: "border-blue-100",
+    hoverBorder: "hover:border-[#1B3F7B]/30",
+    ctaColor: "text-[#1B3F7B]",
+    icon: (
+      <path d="M3 19V8l8-5 8 5v11h-5v-5H8v5H3z" fill="white" />
+    ),
+    title: "Entity Formation",
+    description:
+      "Generate your Certificate of Incorporation, IP Assignment Agreement, and 501(c)(3) Purpose Narrative for any US state — then file directly online with the state and the IRS.",
+    tags: ["50 states + DC", "C-Corp", "Nonprofit", "Hybrid"],
+    cta: "Form your entity",
+  },
+  {
+    href: "/register",
+    color: "#7c3aed",
+    lightBg: "bg-purple-50",
+    lightText: "text-purple-700",
+    lightBorder: "border-purple-100",
+    hoverBorder: "hover:border-purple-300",
+    ctaColor: "text-purple-700",
+    icon: (
+      <path d="M11 2L4 6v6c0 4 3 7.4 7 8 4-.6 7-4 7-8V6l-7-4z" fill="white" />
+    ),
+    title: "Federal Registration",
+    description:
+      "Skip the SAM.gov maze. Get a step-by-step checklist to obtain your UEI number, CAGE code, and complete SAM registration — prerequisites for any federal grant or contract.",
+    tags: ["SAM.gov", "UEI number", "CAGE code", "NAICS codes"],
+    cta: "Start registration",
+  },
 ];
 
 export default function HomePage() {
@@ -79,24 +80,34 @@ export default function HomePage() {
     <div className="max-w-4xl mx-auto pt-8">
       {/* Hero */}
       <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 bg-green-50 border border-green-200 rounded-full px-3 py-1 text-xs font-semibold text-green-700 mb-5">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-          Free to start — no credit card required
+        <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 text-xs font-semibold text-amber-700 mb-5">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+          $4B+ in federal grants available to small businesses this year
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4 leading-tight">
-          Form. Register. Fund.
+          Find grants your business<br className="hidden sm:block" /> qualifies for — in 2 minutes
         </h1>
         <p className="text-base sm:text-lg text-gray-500 max-w-2xl mx-auto">
-          The complete founder stack — form your entity in any US state, navigate federal registration, discover 100+ grants matched to your business, and auto-apply with AI-written pitches.
+          Describe your business once. Founder Kit scores 100+ federal and private grants for fit, searches the web for new programs, and generates tailored AI pitch drafts — so you apply to the ones worth your time.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/auth" className="bg-[#1B3F7B] hover:bg-[#163266] text-white font-semibold px-6 py-3 rounded-xl text-sm transition">
-            Get started free
+          <Link href="/grants" className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-xl text-sm transition">
+            Find my grants →
           </Link>
-          <Link href="/grants" className="border border-gray-200 hover:border-gray-300 bg-white text-gray-700 font-semibold px-6 py-3 rounded-xl text-sm transition">
-            Find grants →
+          <Link href="/auth" className="border border-gray-200 hover:border-gray-300 bg-white text-gray-700 font-semibold px-6 py-3 rounded-xl text-sm transition">
+            Sign up free
           </Link>
         </div>
+      </div>
+
+      {/* Email capture — above the fold on homepage */}
+      <div className="mb-6">
+        <EmailCapture
+          source="homepage"
+          heading="Not ready to sign up? Get a free grant match report."
+          subtext="Tell us your email — we'll send you the top grants your business qualifies for, no account needed."
+          buttonText="Send my matches"
+        />
       </div>
 
       {/* Four feature cards */}
@@ -167,7 +178,7 @@ export default function HomePage() {
           </p>
           <ul className="space-y-2 text-sm text-gray-600">
             {[
-              "2 grant searches / month",
+              "5 grant searches / month",
               "3 AI pitch drafts / month",
               "Full formation wizard",
               "Federal registration guide",

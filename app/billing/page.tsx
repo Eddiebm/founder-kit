@@ -91,7 +91,7 @@ function BillingContent() {
 
         <div className="grid grid-cols-2 gap-4">
           {[
-            { label: "Funding searches", used: user?.usage.score ?? 0, limit: scoreLimit, max: isPro ? null : 2 },
+            { label: "Funding searches", used: user?.usage.score ?? 0, limit: scoreLimit, max: isPro ? null : 5 },
             { label: "Pitch generations", used: user?.usage.generate ?? 0, limit: generateLimit, max: isPro ? null : 3 },
           ].map((item) => (
             <div key={item.label} className="bg-white rounded-xl p-4 border border-gray-100">
