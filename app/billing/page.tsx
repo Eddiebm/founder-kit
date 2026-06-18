@@ -86,7 +86,7 @@ function BillingContent() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <span className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${isPro ? "bg-[#1a5c3a] text-white" : "bg-gray-100 text-gray-600"}`}>
-              {isPro ? "Pro" : "Free"}
+              {isPro ? "Launchpad" : "Discovery"}
             </span>
             <p className="text-2xl font-bold text-gray-900 mt-2">{isPro ? "$29/month" : "$0/month"}</p>
           </div>
@@ -120,7 +120,7 @@ function BillingContent() {
       {/* Upgrade card */}
       {!isPro && (
         <div className="bg-gradient-to-br from-[#1a5c3a] to-[#174d31] rounded-2xl p-6 text-white">
-          <h2 className="text-xl font-bold mb-1">Upgrade to Pro</h2>
+          <h2 className="text-xl font-bold mb-1">Upgrade to Launchpad</h2>
           <p className="text-white/70 text-sm mb-4">Unlimited searches, pitches, and auto-apply.</p>
 
           {/* Billing period toggle */}
@@ -157,7 +157,7 @@ function BillingContent() {
             disabled={upgrading}
             className="w-full bg-white text-[#1a5c3a] font-bold py-3 rounded-xl hover:bg-green-50 disabled:opacity-50 transition text-sm"
           >
-            {upgrading ? "Redirecting to checkout…" : `Upgrade to Pro — ${priceLabel}${savings} →`}
+            {upgrading ? "Redirecting to checkout…" : `Upgrade to Launchpad — ${priceLabel}${savings} →`}
           </button>
         </div>
       )}

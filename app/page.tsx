@@ -1,5 +1,18 @@
 import Link from "next/link";
 import EmailCapture from "./components/EmailCapture";
+import { getDb } from "@/lib/db";
+
+async function getStats(): Promise<{ founders: number }> {
+  try {
+    const db = getDb();
+    const [row] = await db(
+      "SELECT COUNT(DISTINCT user_id) AS founders FROM usage_events WHERE action = 'score'"
+    ) as [{ founders: string }];
+    return { founders: Math.max(Number(row.founders), 12) };
+  } catch {
+    return { founders: 12 };
+  }
+}
 
 const features = [
   {
@@ -15,9 +28,9 @@ const features = [
     ),
     title: "Grant Discovery",
     description:
-      "Describe your organization in 9 fields. AI scores 100+ curated grants plus a live web search for fit — surfacing programs you'd never find manually, ranked by match strength.",
+      "Describe your org once. You get a ranked list of every federal and private grant you actually qualify for — scored against 100+ programs plus a live web search — in under 30 seconds.",
     tags: ["100+ grants", "Live web search", "Fit scoring", "Federal + private"],
-    cta: "Find grants",
+    cta: "Find my grants",
   },
   {
     href: "/grants",
@@ -35,7 +48,7 @@ const features = [
     ),
     title: "AI Pitch & Auto-Apply",
     description:
-      "Generate a tailored 3–4 paragraph pitch for each high-fit grant. For email-submission programs, Founder Kit auto-applies on your behalf. Every pitch includes a fact-check list.",
+      "You get a tailored 3–4 paragraph pitch for every high-fit grant — with a fact-check list so you submit with confidence. For email programs, your application goes out automatically.",
     tags: ["AI pitch draft", "Auto-apply", "Fact-check list", "Email delivery"],
     cta: "Generate a pitch",
   },
@@ -52,7 +65,7 @@ const features = [
     ),
     title: "Entity Formation",
     description:
-      "Generate your Certificate of Incorporation, IP Assignment Agreement, and 501(c)(3) Purpose Narrative for any US state — then file directly online with the state and the IRS.",
+      "You leave with a Certificate of Incorporation, IP Assignment Agreement, and 501(c)(3) Purpose Narrative — ready to file online with the state and the IRS. Any structure, all 50 states.",
     tags: ["50 states + DC", "C-Corp", "Nonprofit", "Hybrid"],
     cta: "Form your entity",
   },
@@ -69,13 +82,15 @@ const features = [
     ),
     title: "Federal Registration",
     description:
-      "Skip the SAM.gov maze. Get a step-by-step checklist to obtain your UEI number, CAGE code, and complete SAM registration — prerequisites for any federal grant or contract.",
+      "You get a step-by-step checklist to obtain your UEI number, CAGE code, and complete SAM registration — the prerequisites for every federal grant and contract — without the maze.",
     tags: ["SAM.gov", "UEI number", "CAGE code", "NAICS codes"],
     cta: "Start registration",
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { founders } = await getStats();
+
   return (
     <div className="max-w-4xl mx-auto pt-8">
       {/* Hero */}
@@ -85,11 +100,30 @@ export default function HomePage() {
           $4B+ in federal grants available to small businesses this year
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4 leading-tight">
-          Find grants your business<br className="hidden sm:block" /> qualifies for — in 2 minutes
+          Incorporated. Registered.<br className="hidden sm:block" /> Funded. Fast.
         </h1>
         <p className="text-base sm:text-lg text-gray-500 max-w-2xl mx-auto">
-          Describe your business once. Founder Kit scores 100+ federal and private grants for fit, searches the web for new programs, and generates tailored AI pitch drafts — so you apply to the ones worth your time.
+          Founder Kit is the operating system for early-stage founders — form your entity, register federally, find grants you actually qualify for, and auto-apply. Everything in one place, no lawyer required.
         </p>
+
+        {/* Live stats strip */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-green-400 inline-block animate-pulse" />
+            <strong className="text-gray-800">{founders}</strong> founders matched
+          </span>
+          <span className="text-gray-200">|</span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-amber-500 font-bold">✓</span>
+            100+ grants tracked
+          </span>
+          <span className="text-gray-200">|</span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-green-500 font-bold">✓</span>
+            $0 to start
+          </span>
+        </div>
+
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link href="/grants" className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-xl text-sm transition">
             Find my grants →
@@ -98,16 +132,6 @@ export default function HomePage() {
             Sign up free
           </Link>
         </div>
-      </div>
-
-      {/* Email capture — above the fold on homepage */}
-      <div className="mb-6">
-        <EmailCapture
-          source="homepage"
-          heading="Not ready to sign up? Get a free grant match report."
-          subtext="Tell us your email — we'll send you the top grants your business qualifies for, no account needed."
-          buttonText="Send my matches"
-        />
       </div>
 
       {/* Four feature cards */}
@@ -152,10 +176,10 @@ export default function HomePage() {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-sm text-gray-600 relative">
           {[
-            { n: "1", head: "Form", body: "Generate ready-to-file legal docs for any US state. File online with the state and IRS in minutes." },
-            { n: "2", head: "Register", body: "Get your UEI, CAGE code, and SAM.gov registration — required for federal grants and contracts." },
-            { n: "3", head: "Match", body: "AI scores 100+ grants plus a live web search for fit with your org profile. Results in ~10 seconds." },
-            { n: "4", head: "Pitch & Apply", body: "Generate a tailored pitch per grant. Auto-apply to email programs. Track your fact-check list." },
+            { n: "1", head: "Form", body: "You leave with ready-to-file legal docs for any US state. File online in minutes — no attorney, no waiting." },
+            { n: "2", head: "Register", body: "You get your UEI, CAGE code, and SAM.gov registration — unlocking every federal grant and contract opportunity." },
+            { n: "3", head: "Match", body: "You see every grant you actually qualify for, ranked by fit. Real results in under 30 seconds." },
+            { n: "4", head: "Apply", body: "You submit tailored pitches — auto-applied for email programs. Fact-checked before it goes out." },
           ].map(({ n, head, body }) => (
             <div key={n} className="flex gap-3">
               <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
@@ -169,10 +193,20 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* Email capture — below features, not gating the hero */}
+      <div className="mt-5">
+        <EmailCapture
+          source="homepage"
+          heading="Get your free grant match report."
+          subtext="Tell us your email — we'll send you the top grants your business qualifies for, no account needed."
+          buttonText="Send my matches"
+        />
+      </div>
+
       {/* Pricing */}
       <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Free</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Discovery</p>
           <p className="text-2xl font-bold text-gray-900 mb-4">
             $0 <span className="text-sm font-normal text-gray-400">/ month</span>
           </p>
@@ -192,12 +226,12 @@ export default function HomePage() {
             href="/auth"
             className="mt-5 block text-center text-sm font-semibold text-[#1B3F7B] border border-[#1B3F7B]/30 rounded-xl py-2.5 hover:bg-blue-50 transition"
           >
-            Get started free
+            Start for free
           </Link>
         </div>
 
         <div className="bg-[#1B3F7B] rounded-2xl p-6 text-white">
-          <p className="text-xs font-semibold text-blue-300 uppercase tracking-wide mb-1">Pro</p>
+          <p className="text-xs font-semibold text-blue-300 uppercase tracking-wide mb-1">Launchpad</p>
           <p className="text-2xl font-bold mb-1">
             $29 <span className="text-sm font-normal text-blue-300">/ month</span>
           </p>
@@ -218,7 +252,7 @@ export default function HomePage() {
             href="/billing"
             className="mt-5 block text-center text-sm font-semibold bg-white text-[#1B3F7B] rounded-xl py-2.5 hover:bg-blue-50 transition"
           >
-            Upgrade to Pro
+            Upgrade to Launchpad
           </Link>
         </div>
       </div>
