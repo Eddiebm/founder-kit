@@ -61,7 +61,7 @@ function BillingContent() {
   }
 
   const isPro = user?.plan === "pro";
-  const scoreLimit = isPro ? "Unlimited" : "2/month";
+  const scoreLimit = isPro ? "Unlimited" : "5/month";
   const generateLimit = isPro ? "Unlimited" : "3/month";
 
   const priceLabel = period === "annual" ? "$249/year" : "$29/month";
