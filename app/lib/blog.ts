@@ -7,6 +7,7 @@ export interface ArticleMeta {
   title: string;
   description: string;
   date: string;
+  category: string;
   tags: string[];
   verifiableClaims: string[];
 }
@@ -35,6 +36,7 @@ export function getArticle(slug: string): Article | null {
     title: data.title ?? "",
     description: data.description ?? "",
     date: data.date ?? "",
+    category: data.category ?? "General",
     tags: data.tags ?? [],
     verifiableClaims: data.verifiableClaims ?? [],
     content,
