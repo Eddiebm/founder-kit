@@ -167,8 +167,8 @@ export default function HomePage() {
           </p>
           <ul className="space-y-2 text-sm text-gray-600">
             {[
-              "5 grant searches / month",
-              "10 AI pitch drafts / month",
+              "2 grant searches / month",
+              "3 AI pitch drafts / month",
               "Full formation wizard",
               "Federal registration guide",
             ].map((feat) => (
@@ -187,9 +187,10 @@ export default function HomePage() {
 
         <div className="bg-[#1B3F7B] rounded-2xl p-6 text-white">
           <p className="text-xs font-semibold text-blue-300 uppercase tracking-wide mb-1">Pro</p>
-          <p className="text-2xl font-bold mb-4">
-            $19 <span className="text-sm font-normal text-blue-300">/ month</span>
+          <p className="text-2xl font-bold mb-1">
+            $29 <span className="text-sm font-normal text-blue-300">/ month</span>
           </p>
+          <p className="text-xs text-blue-300 mb-4">or $249/year <span className="bg-amber-400 text-amber-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">Save $99</span></p>
           <ul className="space-y-2 text-sm text-blue-100">
             {[
               "Unlimited grant searches",

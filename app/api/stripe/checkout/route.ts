@@ -4,11 +4,18 @@ export async function POST(request: Request) {
   const session = await verifyToken(getTokenFromRequest(request) ?? "");
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  const priceId = process.env.STRIPE_PRO_PRICE_ID;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://formation-wizard.vercel.app";
+  const { period } = (await request.json().catch(() => ({}))) as { period?: string };
+  const isAnnual = period === "annual";
 
-  if (!stripeKey || !priceId) throw new Error("Stripe env vars not set");
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const monthlyPriceId = process.env.STRIPE_PRO_PRICE_ID;
+  const annualPriceId = process.env.STRIPE_PRO_ANNUAL_PRICE_ID;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://myfounderkit.com";
+
+  if (!stripeKey || !monthlyPriceId) throw new Error("Stripe env vars not set");
+  if (isAnnual && !annualPriceId) throw new Error("STRIPE_PRO_ANNUAL_PRICE_ID not set");
+
+  const priceId = isAnnual ? annualPriceId! : monthlyPriceId;
 
   const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
