@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { GRANT_PROGRAMS } from "@/lib/grants";
 import type { CompanyProfile, ScoredGrant } from "@/lib/types";
+import { usePostHog } from "posthog-js/react";
+import UpgradePrompt from "@/components/UpgradePrompt";
 
 function Spinner({ message }: { message?: string }) {
   return (
@@ -38,6 +40,7 @@ function PitchContent() {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const ph = usePostHog();
   const [copied, setCopied] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [applicantName, setApplicantName] = useState("");
@@ -86,6 +89,7 @@ function PitchContent() {
         );
       }
       setGenerated(true);
+      ph?.capture("pitch_generated", { grant_id: grantId, company: profile.companyName });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -200,12 +204,14 @@ function PitchContent() {
 
       {generating && !pitch && <Spinner message="Claude is writing your pitch…" />}
 
-      {error && (
+      {error && (error.toLowerCase().includes("limit") || error.includes("429") ? (
+        <UpgradePrompt type="pitch" />
+      ) : (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
           <p className="text-red-700 text-sm font-medium">Error: {error}</p>
           <button onClick={handleGenerate} className="text-red-600 underline text-sm mt-1">Try again</button>
         </div>
-      )}
+      ))}
 
       {pitch && (
         <div className="space-y-4">

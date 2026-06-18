@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePostHog } from "posthog-js/react";
+import UpgradePrompt from "@/components/UpgradePrompt";
 
 const FEDERAL_FUNDERS = [
   "National Institutes of Health", "National Science Foundation", "USAID",
@@ -303,10 +305,13 @@ function BookmarkButton({ grant, profile, savedIds, onToggle }: {
 }) {
   const isSaved = savedIds.has(grant.id);
   const [busy, setBusy] = useState(false);
+  const ph = usePostHog();
 
   async function toggle() {
     setBusy(true);
-    onToggle(grant.id, !isSaved);
+    const saving = !isSaved;
+    onToggle(grant.id, saving);
+    if (saving) ph?.capture("grant_saved", { grant_id: grant.id, grant_name: grant.name, fit: grant.fitScore });
     await fetch("/api/grants/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -340,6 +345,7 @@ function ResultsContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const ph = usePostHog();
 
   const profile: CompanyProfile = {
     companyName: searchParams.get("companyName") ?? "",
@@ -366,7 +372,15 @@ function ResultsContent() {
           const data = await res.json().catch(() => ({}));
           throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
         }
-        setGrants(await res.json());
+        const data = await res.json();
+        setGrants(data);
+        ph?.capture("grant_search_completed", {
+          count: data.length,
+          high_fit: data.filter((g: { fitScore: string }) => g.fitScore === "High").length,
+          company: profile.companyName,
+          stage: profile.stage,
+          focus: profile.focusArea,
+        });
       } catch (e) {
         setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
@@ -403,6 +417,8 @@ function ResultsContent() {
 
   if (loading) return <Spinner />;
   if (error) {
+    const isLimit = error.toLowerCase().includes("limit") || error.includes("429");
+    if (isLimit) return <UpgradePrompt type="search" />;
     return (
       <div className="text-center py-16">
         <p className="text-red-600 font-medium">Error: {error}</p>

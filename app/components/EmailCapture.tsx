@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePostHog } from "posthog-js/react";
 
 interface Props {
   source: string;
@@ -19,6 +20,7 @@ export default function EmailCapture({
 }: Props) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const ph = usePostHog();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +31,12 @@ export default function EmailCapture({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, source }),
       });
-      setStatus(res.ok ? "done" : "error");
+      if (res.ok) {
+        ph?.capture("email_captured", { source });
+        setStatus("done");
+      } else {
+        setStatus("error");
+      }
     } catch {
       setStatus("error");
     }

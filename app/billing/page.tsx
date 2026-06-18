@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import { usePostHog } from "posthog-js/react";
 
 interface User {
   id: string;
@@ -21,6 +22,7 @@ function BillingContent() {
   const [upgrading, setUpgrading] = useState(false);
   const [managing, setManaging] = useState(false);
   const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
+  const ph = usePostHog();
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => {
@@ -39,6 +41,7 @@ function BillingContent() {
 
   async function handleUpgrade() {
     setUpgrading(true);
+    ph?.capture("upgrade_clicked", { source: "billing_page", period });
     const res = await fetch("/api/stripe/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
