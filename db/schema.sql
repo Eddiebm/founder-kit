@@ -36,3 +36,8 @@ CREATE TABLE IF NOT EXISTS blog_verifications (
   last_verified_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS email_unsubscribes (
+  user_id UUID PRIMARY KEY,
+  unsubscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
