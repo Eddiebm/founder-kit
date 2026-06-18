@@ -295,11 +295,51 @@ function AutoApplyPanel({
   );
 }
 
+function BookmarkButton({ grant, profile, savedIds, onToggle }: {
+  grant: ScoredGrant;
+  profile: CompanyProfile;
+  savedIds: Set<string>;
+  onToggle: (id: string, saved: boolean) => void;
+}) {
+  const isSaved = savedIds.has(grant.id);
+  const [busy, setBusy] = useState(false);
+
+  async function toggle() {
+    setBusy(true);
+    onToggle(grant.id, !isSaved);
+    await fetch("/api/grants/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ grant, profile, action: isSaved ? "unsave" : "save" }),
+    }).catch(() => null);
+    setBusy(false);
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={busy}
+      title={isSaved ? "Remove from saved" : "Save grant"}
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition ${
+        isSaved
+          ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+          : "bg-white border-gray-200 text-gray-500 hover:border-amber-300 hover:text-amber-600"
+      }`}
+    >
+      <svg className="w-4 h-4" fill={isSaved ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+      </svg>
+      {isSaved ? "Saved" : "Save"}
+    </button>
+  );
+}
+
 function ResultsContent() {
   const searchParams = useSearchParams();
   const [grants, setGrants] = useState<ScoredGrant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
   const profile: CompanyProfile = {
     companyName: searchParams.get("companyName") ?? "",
@@ -333,9 +373,24 @@ function ResultsContent() {
         setLoading(false);
       }
     }
+    async function fetchSaved() {
+      const res = await fetch("/api/grants/save").catch(() => null);
+      if (!res?.ok) return;
+      const rows = await res.json() as { grant_id: string }[];
+      setSavedIds(new Set(rows.map((r) => r.grant_id)));
+    }
     fetchGrants();
+    fetchSaved();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function toggleSaved(id: string, save: boolean) {
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      save ? next.add(id) : next.delete(id);
+      return next;
+    });
+  }
 
   const companyParams = new URLSearchParams(profile as unknown as Record<string, string>).toString();
   const highFit = grants.filter((g) => g.fitScore === "High");
@@ -359,12 +414,21 @@ function ResultsContent() {
   return (
     <div>
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
           <Link href="/grants" className="text-[#1a5c3a] text-sm hover:underline">← Edit Profile</Link>
           <span className="text-gray-300">|</span>
           <div className="inline-flex items-center gap-2 bg-[#1a5c3a]/10 text-[#1a5c3a] rounded-full px-4 py-1.5 text-sm font-medium">
             Step 2 of 3 — Grant Discovery
           </div>
+          {savedIds.size > 0 && (
+            <>
+              <span className="text-gray-300">|</span>
+              <Link href="/saved" className="inline-flex items-center gap-1.5 text-amber-700 text-sm font-medium hover:underline">
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                {savedIds.size} saved
+              </Link>
+            </>
+          )}
         </div>
         <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
           {grants.length} grants matched for <span className="text-[#1a5c3a] break-words">{profile.companyName}</span>
@@ -440,12 +504,15 @@ function ResultsContent() {
                   </span>
                 )}
               </div>
-              <Link
-                href={`/grants/pitch?grantId=${grant.id}&${companyParams}`}
-                className="inline-flex items-center gap-1.5 bg-[#1a5c3a] hover:bg-[#174d31] text-white text-sm font-semibold px-4 py-2 rounded-xl transition"
-              >
-                Generate Pitch →
-              </Link>
+              <div className="flex items-center gap-2">
+                <BookmarkButton grant={grant} profile={profile} savedIds={savedIds} onToggle={toggleSaved} />
+                <Link
+                  href={`/grants/pitch?grantId=${grant.id}&${companyParams}`}
+                  className="inline-flex items-center gap-1.5 bg-[#1a5c3a] hover:bg-[#174d31] text-white text-sm font-semibold px-4 py-2 rounded-xl transition"
+                >
+                  Generate Pitch →
+                </Link>
+              </div>
             </div>
           </div>
         ))}
