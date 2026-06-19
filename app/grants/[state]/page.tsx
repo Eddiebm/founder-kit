@@ -204,6 +204,36 @@ export default async function StateGrantsPage({
         </div>
       </section>
 
+      {/* Related guides */}
+      <section className="mb-10">
+        <h2 className="text-base font-bold text-gray-900 mb-4">Guides for {info.name} Founders</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {[
+            { slug: "how-to-get-an-ein", title: "How to Get an EIN" },
+            { slug: "how-to-register-on-sam-gov", title: "How to Register on SAM.gov" },
+            { slug: "how-to-get-uei-number", title: "How to Get a UEI Number" },
+            { slug: "sbir-vs-sttr-grants", title: "SBIR vs STTR Grants" },
+            { slug: "non-dilutive-funding-guide", title: "Non-Dilutive Funding Guide" },
+            { slug: "how-to-apply-for-federal-small-business-grant", title: "How to Apply for a Federal Grant" },
+            { slug: "c-corp-vs-llc-for-startups", title: "C-Corp vs LLC for Startups" },
+            { slug: "founder-equity-split-agreement", title: "Founder Equity Split Agreement" },
+            { slug: "how-to-incorporate-in-delaware", title: "How to Incorporate in Delaware" },
+            { slug: "what-is-a-registered-agent", title: "What Is a Registered Agent?" },
+            { slug: "duns-number-vs-uei", title: "DUNS Number vs UEI" },
+            { slug: "state-small-business-grants", title: "State Small Business Grants Overview" },
+          ].map((article) => (
+            <Link
+              key={article.slug}
+              href={`/blog/${article.slug}`}
+              className="text-sm text-[#1a5c3a] hover:underline px-3 py-2 rounded-lg hover:bg-green-50 transition flex items-center gap-2"
+            >
+              <span className="text-gray-300">→</span>
+              {article.title}
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* Bottom CTA */}
       <div className="bg-[#1B3F7B] rounded-2xl p-6 text-white text-center">
         <h3 className="font-bold text-base mb-2">
