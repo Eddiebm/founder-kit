@@ -721,7 +721,7 @@ export default function WizardPage() {
   // Step 1
   const [info, setInfo] = useState<CompanyInfo>({
     founderName: "",
-    companyName: "MedOS Inc",
+    companyName: "",
     state: "DE",
     incorporationDate: "",
     founderEmail: "",
@@ -733,21 +733,21 @@ export default function WizardPage() {
   });
 
   // Step 2
-  const [ipItems, setIpItems] = useState<IPItem[]>(DEFAULT_IP_ITEMS);
+  const [ipItems, setIpItems] = useState<IPItem[]>([]);
   const [customInput, setCustomInput] = useState("");
 
   // Step 3
-  const [structure, setStructure] = useState<EntityStructure>("hybrid");
+  const [structure, setStructure] = useState<EntityStructure>("ccorp");
   const [foundation, setFoundation] = useState<FoundationInfo>({
-    foundationName: "MedOS Africa Foundation",
-    foundationPurpose:
-      "To provide free clinical decision support to frontline health workers in sub-Saharan Africa",
+    foundationName: "",
+    foundationPurpose: "",
   });
 
   // Step 4 — download all
   const [allCopied, setAllCopied] = useState(false);
 
   // Formation filing
+  const [showManual, setShowManual] = useState(false);
   const [filingLoading, setFilingLoading] = useState(false);
   const [filingError, setFilingError] = useState("");
   const [formationSuccess, setFormationSuccess] = useState<{ orderId: string; companyName: string } | null>(null);
@@ -1466,21 +1466,19 @@ export default function WizardPage() {
             )}
 
             {!isNonprofit && (
-              <div className="rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50 p-6 mt-2">
-                <div className="flex items-start gap-4">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: "#1B3F7B" }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <path d="M10 2L12.5 7.5H18L13.5 11L15.5 17L10 13.5L4.5 17L6.5 11L2 7.5H7.5L10 2Z" fill="white" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-900 text-base mb-1">File with the State of {stateInfo.name}</h3>
+              <div className="mt-2">
+                <button
+                  onClick={() => setShowManual((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  <span>Prefer to file it yourself?</span>
+                  <span className="text-gray-400">{showManual ? "↑ Hide" : "↓ Show instructions"}</span>
+                </button>
+                {showManual && (
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 mt-2">
                     <p className="text-sm text-gray-600 mb-3">
-                      Copy <strong>Document 0</strong> above, then file it online at the {stateInfo.name}
-                      filing portal. Filing fee: <strong>${stateInfo.corpFee}</strong>. Processing: {stateInfo.processingTime}.
+                      Copy <strong>Document 0</strong> above, then file at the {stateInfo.name} portal.
+                      Filing fee: <strong>${stateInfo.corpFee}</strong>. Processing: {stateInfo.processingTime}.
                     </p>
                     {stateInfo.notes && (
                       <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
@@ -1488,41 +1486,29 @@ export default function WizardPage() {
                       </p>
                     )}
                     <div className="text-sm text-gray-700 space-y-1.5 mb-4">
-                      <div className="flex items-start gap-2">
-                        <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">1</span>
-                        <span>Go to the {stateInfo.name} filing portal and select <strong>"{stateInfo.corpDocName}"</strong></span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">2</span>
-                        <span>Enter your corporation name exactly as written in Document 0</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">3</span>
-                        <span>Paste your registered agent name and {stateInfo.name} address</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">4</span>
-                        <span>Enter authorized shares: <strong>{parseInt(info.numShares || "10000000").toLocaleString()}</strong> shares at $0.0001 par value</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-800 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">5</span>
-                        <span>Pay ${stateInfo.corpFee} filing fee by credit card. You'll receive your stamped {stateInfo.corpDocName.toLowerCase()} by email.</span>
-                      </div>
+                      {[
+                        `Go to the ${stateInfo.name} filing portal and select "${stateInfo.corpDocName}"`,
+                        `Enter your corporation name exactly as written in Document 0`,
+                        `Paste your registered agent name and ${stateInfo.name} address`,
+                        `Enter authorized shares: ${parseInt(info.numShares || "10000000").toLocaleString()} shares at $0.0001 par value`,
+                        `Pay $${stateInfo.corpFee} filing fee by credit card`,
+                      ].map((step, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="w-5 h-5 rounded-full bg-gray-200 text-gray-600 text-xs flex items-center justify-center font-bold shrink-0 mt-0.5">{i + 1}</span>
+                          <span>{step}</span>
+                        </div>
+                      ))}
                     </div>
                     <a
                       href={stateInfo.filingPortal}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-                      style={{ background: "#1B3F7B" }}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       Open {stateInfo.portalLabel} →
                     </a>
-                    <p className="text-xs text-gray-400 mt-3">
-                      Cost: ${stateInfo.corpFee} filing + ~$125/yr registered agent.
-                    </p>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>

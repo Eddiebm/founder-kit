@@ -780,6 +780,19 @@ function ResultsContent() {
       </div>
 
       {!isLoggedIn && <EmailCapture profile={profile} />}
+
+      <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-gray-900 mb-0.5">Ready to apply? Form your company first.</p>
+          <p className="text-sm text-gray-500">Generate your legal documents and file your entity in minutes — free.</p>
+        </div>
+        <Link
+          href="/wizard"
+          className="shrink-0 inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-gray-800 transition whitespace-nowrap"
+        >
+          Form my company →
+        </Link>
+      </div>
     </div>
   );
 }
