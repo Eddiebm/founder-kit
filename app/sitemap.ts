@@ -1,9 +1,11 @@
 import type { MetadataRoute } from "next";
 import { getAllArticles } from "@/lib/blog";
+import { STATES_LIST } from "@/lib/states";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://myfounderkit.com";
   const articles = getAllArticles();
+  const stateSlug = (name: string) => name.toLowerCase().replace(/\s+/g, "-");
 
   return [
     { url: base, lastModified: new Date(), changeFrequency: "weekly", priority: 1 },
@@ -13,6 +15,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/blog`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
     { url: `${base}/privacy`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/terms`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
+    ...STATES_LIST.map((s) => ({
+      url: `${base}/grants/${stateSlug(s.name)}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    })),
     ...articles.map((a) => ({
       url: `${base}/blog/${a.slug}`,
       lastModified: new Date(a.date),
