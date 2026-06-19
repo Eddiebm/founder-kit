@@ -5,7 +5,7 @@ import { getMonthlyCount, getLimit, recordUsage } from "@/lib/usage";
 import { checkRateLimit } from "@/lib/rateLimit";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "anthropic/claude-sonnet-4-6";
+const SCORING_MODEL = "anthropic/claude-haiku-4-5-20251001";
 const EXA_URL = "https://api.exa.ai/search";
 
 interface ExaResult {
@@ -40,24 +40,53 @@ async function searchExa(profile: CompanyProfile, apiKey: string): Promise<ExaRe
   return data.results ?? [];
 }
 
+function preFilterGrants(profile: CompanyProfile) {
+  const stage = profile.stage?.toLowerCase() ?? "";
+  const geo = profile.geography?.toLowerCase() ?? "";
+  const isNonprofit = profile.isNonprofit?.toLowerCase() === "yes";
+
+  const geoIsUS = /united states|u\.s\.|^us$/.test(geo);
+  const geoIsAfrica = /africa|ghana|nigeria|kenya|ethiopia|sub-saharan/.test(geo);
+  const geoIsGlobal = !geoIsUS && !geoIsAfrica;
+
+  return GRANT_PROGRAMS.filter((g) => {
+    if (g.requiresNonprofit && !isNonprofit) return false;
+
+    const grantGeos = g.geographies.map((x) => x.toLowerCase());
+    const grantHasGlobal = grantGeos.includes("global");
+    const grantHasUS = grantGeos.includes("united states");
+    const grantHasAfrica = grantGeos.some((x) => x.includes("africa") || x.includes("sub-saharan"));
+
+    if (geoIsUS && !grantHasUS && !grantHasGlobal) return false;
+    if (geoIsAfrica && !grantHasAfrica && !grantHasGlobal) return false;
+    if (geoIsGlobal && !grantHasGlobal && !grantHasUS && !grantHasAfrica) return false;
+
+    const grantStages = g.stages.map((s) => s.toLowerCase());
+    if (stage && !grantStages.some((s) => s.includes(stage) || stage.includes(s.replace(/-/g, "")))) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 async function scoreDatabase(
   profile: CompanyProfile,
   apiKey: string
 ): Promise<{ id: string; fitScore: "High" | "Medium" | "Low"; fitRationale: string }[]> {
+  const candidates = preFilterGrants(profile);
+  if (candidates.length === 0) return [];
+
   const grantsJson = JSON.stringify(
-    GRANT_PROGRAMS.map((g) => ({
+    candidates.map((g) => ({
       id: g.id,
       name: g.name,
       funder: g.funder,
-      awardRange: g.awardRange,
       eligibilitySummary: g.eligibilitySummary,
       focusAreas: g.focusAreas,
       geographies: g.geographies,
       stages: g.stages,
-      requiresNonprofit: g.requiresNonprofit,
-    })),
-    null,
-    2
+    }))
   );
 
   const profileSummary = buildProfileSummary(profile);
@@ -66,33 +95,32 @@ async function scoreDatabase(
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 4096,
+      model: SCORING_MODEL,
+      max_tokens: 8192,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "user",
-          content: `You are a funding matching expert. Score each program for this applicant based on their stated funding type and profile.
+          content: `You are a funding matching expert. Score each grant program for this applicant.
 
 APPLICANT PROFILE:
 ${profileSummary}
 
-FUNDING PROGRAMS (JSON):
+GRANT PROGRAMS (JSON):
 ${grantsJson}
 
-For each program, respond with a JSON array. Each element must have exactly these fields:
-- "id": the program id string
-- "fitScore": exactly one of "High", "Medium", or "Low"
-- "fitRationale": a single specific sentence (15-25 words) explaining the fit
+Return a JSON object with a "scores" array. Each element must have:
+- "id": the program id string (copy exactly)
+- "fitScore": "High", "Medium", or "Low"
+- "fitRationale": one specific sentence (15-25 words) referencing the applicant's actual sector and geography
 
-Scoring guidance:
-- Prioritize programs that match the stated funding type (${profile.fundingType || "grant"})
-- High: strong alignment on funding type, industry/focus, geography, and stage
-- Medium: partial alignment — some factors match, others don't
-- Low: significant mismatch in funding type, eligibility, or focus
+Scoring:
+- High: strong match on funding type, sector, geography, and stage
+- Medium: partial match — some factors align, others don't
+- Low: significant mismatch in eligibility or focus
 
-Be specific in rationales — reference the applicant's actual industry and geography.
-
-Respond with ONLY the JSON array, no other text.`,
+Prioritize programs matching funding type: ${profile.fundingType || "grant"}.
+Reference the applicant's actual sector (${profile.focusArea}) and geography (${profile.geography}) in each rationale.`,
         },
       ],
     }),
@@ -103,11 +131,8 @@ Respond with ONLY the JSON array, no other text.`,
   const content = data.choices?.[0]?.message?.content ?? "";
 
   try {
-    const raw = content.trim();
-    const jsonStr = raw.startsWith("```")
-      ? raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
-      : raw;
-    return JSON.parse(jsonStr);
+    const parsed = JSON.parse(content);
+    return Array.isArray(parsed.scores) ? parsed.scores : [];
   } catch {
     return [];
   }
@@ -129,7 +154,7 @@ async function extractWebGrants(
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: MODEL,
+      model: SCORING_MODEL,
       max_tokens: 2048,
       messages: [
         {
@@ -227,25 +252,36 @@ export async function POST(request: Request) {
   const profile: CompanyProfile = await request.json();
   const exaKey = process.env.EXA_API_KEY;
 
+  // Pre-filter grants by geography/stage before scoring
+  const candidates = preFilterGrants(profile);
+  const candidateIds = new Set(candidates.map((g) => g.id));
+
   // Run database scoring and Exa search in parallel
   const [dbScores, webResults] = await Promise.all([
     scoreDatabase(profile, openrouterKey),
     exaKey ? searchExa(profile, exaKey) : Promise.resolve([] as ExaResult[]),
   ]);
 
-  // Build scored database grants
+  // Build scored database grants — scored candidates first, filtered-out grants last
   const scoreMap = new Map(dbScores.map((s) => [s.id, s]));
   const order = { High: 0, Medium: 1, Low: 2 };
 
   const dbGrants: ScoredGrant[] = GRANT_PROGRAMS.map((grant) => {
     const score = scoreMap.get(grant.id);
+    const isCandidate = candidateIds.has(grant.id);
     return {
       ...grant,
       fitScore: score?.fitScore ?? "Low",
-      fitRationale: score?.fitRationale ?? "No specific rationale available.",
+      fitRationale: score?.fitRationale ?? (isCandidate ? "Review eligibility carefully." : "Geography or stage mismatch."),
       source: "database" as const,
     };
-  }).sort((a, b) => order[a.fitScore] - order[b.fitScore]);
+  }).sort((a, b) => {
+    // Candidates (eligible by geo/stage) before non-candidates; within each group sort by fitScore
+    const aCand = candidateIds.has(a.id) ? 0 : 1;
+    const bCand = candidateIds.has(b.id) ? 0 : 1;
+    if (aCand !== bCand) return aCand - bCand;
+    return order[a.fitScore] - order[b.fitScore];
+  });
 
   // If Exa found results, extract web grants in parallel-ish (already have web results)
   let webGrants: ScoredGrant[] = [];

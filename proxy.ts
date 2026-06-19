@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "./app/lib/auth";
 
-const PROTECTED = ["/grants/pitch", "/wizard", "/register", "/billing"];
+const PROTECTED = ["/grants/pitch", "/billing"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -29,5 +29,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/grants/pitch", "/wizard/:path*", "/register/:path*", "/billing/:path*"],
+  matcher: ["/grants/pitch", "/billing/:path*"],
 };
