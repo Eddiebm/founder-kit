@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { STATES_LIST, getState, type StateFilingInfo } from "../lib/states";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -747,6 +747,50 @@ export default function WizardPage() {
   // Step 4 — download all
   const [allCopied, setAllCopied] = useState(false);
 
+  // Formation filing
+  const [filingLoading, setFilingLoading] = useState(false);
+  const [filingError, setFilingError] = useState("");
+  const [formationSuccess, setFormationSuccess] = useState<{ orderId: string; companyName: string } | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("formation") === "success") {
+      const orderId = params.get("orderId") ?? "";
+      setFormationSuccess({ orderId, companyName: info.companyName || "your company" });
+      setStep(4);
+      window.history.replaceState({}, "", "/wizard");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleFileForMe() {
+    if (!info.founderEmail) {
+      setFilingError("Add your email address in Step 1 before filing.");
+      return;
+    }
+    setFilingLoading(true);
+    setFilingError("");
+    try {
+      const res = await fetch("/api/formation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: info.companyName,
+          state: info.state,
+          entityType: structure,
+          founderEmail: info.founderEmail,
+          wizardData: { ...info, structure },
+        }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Something went wrong");
+      window.location.href = data.url;
+    } catch (e) {
+      setFilingError(e instanceof Error ? e.message : "Something went wrong");
+      setFilingLoading(false);
+    }
+  }
+
   const isHybrid = structure === "hybrid";
   const isNonprofit = structure === "nonprofit";
 
@@ -1170,6 +1214,83 @@ export default function WizardPage() {
         {/* ── STEP 4 ─────────────────────────────────────────────────────────── */}
         {step === 4 && (
           <div>
+            {/* ── Formation success banner ── */}
+            {formationSuccess && (
+              <div className="rounded-2xl border-2 border-green-200 bg-green-50 p-6 mb-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-green-600 flex items-center justify-center shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M5 10l4 4 6-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-base mb-1">Payment received — filing in progress</h3>
+                    <p className="text-sm text-gray-600 mb-1">
+                      We&apos;ve submitted <strong>{formationSuccess.companyName}</strong> to the state. You&apos;ll receive
+                      email updates at each step: state approval → EIN → registered agent confirmation.
+                    </p>
+                    <p className="text-xs text-gray-400">Order ID: {formationSuccess.orderId}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── File for me card (shown when no active order) ── */}
+            {!formationSuccess && (
+              <div className="rounded-2xl border-2 border-[#1B3F7B]/20 bg-[#1B3F7B]/[0.03] p-6 mb-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#1B3F7B" }}>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M10 2L12.5 7.5H18L13.5 11L15.5 17L10 13.5L4.5 17L6.5 11L2 7.5H7.5L10 2Z" fill="white" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+                      <h3 className="font-bold text-gray-900 text-base">Have us file this for you</h3>
+                      <span className="text-xl font-semibold text-gray-900">$249</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-3">
+                      We submit to the {stateInfo.name} Secretary of State on your behalf. No trips to government portals.
+                    </p>
+                    <ul className="text-sm text-gray-600 space-y-1 mb-4">
+                      {[
+                        `State filing fee included (${stateInfo.name} ${isNonprofit ? `$${stateInfo.nonprofitFee}` : `$${stateInfo.corpFee}`})`,
+                        "EIN from the IRS",
+                        "Registered agent (first year)",
+                        "Email updates at every step",
+                      ].map((f) => (
+                        <li key={f} className="flex items-center gap-2">
+                          <span className="text-green-500 shrink-0">✓</span>
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                    {filingError && (
+                      <p className="text-sm text-red-600 mb-3">{filingError}</p>
+                    )}
+                    <button
+                      onClick={handleFileForMe}
+                      disabled={filingLoading}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
+                      style={{ background: "#1B3F7B" }}
+                    >
+                      {filingLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Redirecting to checkout…
+                        </>
+                      ) : (
+                        <>File {info.companyName || "my company"} — $249 →</>
+                      )}
+                    </button>
+                    <p className="text-xs text-gray-400 mt-3">
+                      Secure checkout via Stripe. Your documents above are also yours to keep.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Your Documents</h2>

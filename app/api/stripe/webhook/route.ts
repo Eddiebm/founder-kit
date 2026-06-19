@@ -56,6 +56,128 @@ async function sendPaymentFailedEmail(email: string, name: string | null, portal
   }).catch((err) => console.error("PAYMENT_FAILED_EMAIL_ERROR:", err));
 }
 
+function parseAddress(raw: string, fallbackState: string) {
+  // Attempt to parse "123 Main St, City, ST 12345" — best effort
+  const parts = raw.split(",").map((s) => s.trim());
+  if (parts.length >= 3) {
+    const stateZip = parts[parts.length - 1].trim().split(" ");
+    return {
+      street: parts[0],
+      city: parts[parts.length - 2],
+      state: stateZip[0] || fallbackState,
+      zip: stateZip[1] || "",
+      country: "US",
+    };
+  }
+  return { street: raw || "Address on file", city: "", state: fallbackState, zip: "", country: "US" };
+}
+
+async function handleFormationPayment(
+  session: { metadata?: Record<string, string>; payment_intent?: string },
+  db: (q: string, p?: unknown[]) => Promise<Record<string, unknown>[]>
+) {
+  const orderId = session.metadata?.order_id;
+  if (!orderId) return;
+
+  const rows = await db("SELECT * FROM formation_orders WHERE id = $1", [orderId]) as Record<string, unknown>[];
+  if (!rows.length) return;
+  const order = rows[0] as {
+    id: string; email: string; company_name: string; state: string;
+    entity_type: string; wizard_data: Record<string, string>;
+  };
+
+  await db(
+    "UPDATE formation_orders SET status = 'payment_complete', stripe_payment_intent = $1, updated_at = NOW() WHERE id = $2",
+    [session.payment_intent ?? null, orderId]
+  );
+
+  const doolaKey = process.env.DOOLA_API_KEY;
+  if (!doolaKey) {
+    console.error("DOOLA_API_KEY not set — formation order", orderId, "needs manual processing");
+    return;
+  }
+
+  const wd = order.wizard_data;
+  const nameParts = ((wd.founderName as string) || "Founder Name").split(" ");
+  const firstName = nameParts[0];
+  const lastName = nameParts.slice(1).join(" ") || "Name";
+  const addr = parseAddress((wd.incorporatorAddress as string) || "", order.state);
+
+  // Step 1: Create Doola customer
+  const custRes = await fetch("https://api.doola.com/v1/partner/customers", {
+    method: "POST",
+    headers: {
+      Authorization: doolaKey,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `customer-${orderId}`,
+    },
+    body: JSON.stringify({
+      email: order.email,
+      firstName,
+      lastName,
+      countryOfResidence: "USA",
+    }),
+  });
+
+  if (!custRes.ok) {
+    console.error("Doola customer error:", await custRes.text());
+    await db("UPDATE formation_orders SET status = 'failed', updated_at = NOW() WHERE id = $1", [orderId]);
+    return;
+  }
+
+  const customer = await custRes.json() as { id: string };
+
+  // Step 2: Create Doola company
+  const isCCorp = order.entity_type === "ccorp";
+  const execMember = { legalFirstName: firstName, legalLastName: lastName, isNaturalPerson: true, address: addr };
+  const companyPayload: Record<string, unknown> = {
+    doolaCustomerId: customer.id,
+    entityType: isCCorp ? "CCorp" : "LLC",
+    state: order.state,
+    nameOptions: [{ name: order.company_name, preference: 1 }],
+    naicsCode: "541990",
+    description: (wd.oneLiner as string) || order.company_name,
+    responsibleParty: { ...execMember },
+  };
+
+  if (isCCorp) {
+    companyPayload.executiveMembers = ["President", "Secretary", "Treasurer", "Director"].map((role) => ({
+      ...execMember, role,
+    }));
+    companyPayload.ccorpValuation = {
+      authorizedShares: parseInt((wd.numShares as string) || "10000000"),
+      parValue: 0.0001,
+    };
+  } else {
+    companyPayload.members = [{ ...execMember, ownershipPercent: 100 }];
+  }
+
+  const compRes = await fetch("https://api.doola.com/v1/partner/companies", {
+    method: "POST",
+    headers: {
+      Authorization: doolaKey,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `company-${orderId}`,
+    },
+    body: JSON.stringify(companyPayload),
+  });
+
+  if (!compRes.ok) {
+    console.error("Doola company error:", await compRes.text());
+    await db(
+      "UPDATE formation_orders SET status = 'failed', doola_customer_id = $1, updated_at = NOW() WHERE id = $2",
+      [customer.id, orderId]
+    );
+    return;
+  }
+
+  const company = await compRes.json() as { id: string };
+  await db(
+    "UPDATE formation_orders SET status = 'formation_submitted', doola_customer_id = $1, doola_company_id = $2, updated_at = NOW() WHERE id = $3",
+    [customer.id, company.id, orderId]
+  );
+}
+
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
@@ -71,6 +193,12 @@ export async function POST(request: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
+
+    if (session.metadata?.type === "formation") {
+      await handleFormationPayment(session, db);
+      return Response.json({ ok: true });
+    }
+
     const userId = session.metadata?.user_id;
     const customerId = session.customer;
     const subscriptionId = session.subscription;
