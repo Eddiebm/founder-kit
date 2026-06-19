@@ -252,9 +252,8 @@ export async function POST(request: Request) {
   const profile: CompanyProfile = await request.json();
   const exaKey = process.env.EXA_API_KEY;
 
-  // Pre-filter grants by geography/stage before scoring
+  // Pre-filter grants by geography/stage before scoring — only score and return eligible grants
   const candidates = preFilterGrants(profile);
-  const candidateIds = new Set(candidates.map((g) => g.id));
 
   // Run database scoring and Exa search in parallel
   const [dbScores, webResults] = await Promise.all([
@@ -262,26 +261,19 @@ export async function POST(request: Request) {
     exaKey ? searchExa(profile, exaKey) : Promise.resolve([] as ExaResult[]),
   ]);
 
-  // Build scored database grants — scored candidates first, filtered-out grants last
+  // Build scored results — only candidates, sorted by fitScore
   const scoreMap = new Map(dbScores.map((s) => [s.id, s]));
   const order = { High: 0, Medium: 1, Low: 2 };
 
-  const dbGrants: ScoredGrant[] = GRANT_PROGRAMS.map((grant) => {
+  const dbGrants: ScoredGrant[] = candidates.map((grant) => {
     const score = scoreMap.get(grant.id);
-    const isCandidate = candidateIds.has(grant.id);
     return {
       ...grant,
       fitScore: score?.fitScore ?? "Low",
-      fitRationale: score?.fitRationale ?? (isCandidate ? "Review eligibility carefully." : "Geography or stage mismatch."),
+      fitRationale: score?.fitRationale ?? "Review eligibility requirements carefully.",
       source: "database" as const,
     };
-  }).sort((a, b) => {
-    // Candidates (eligible by geo/stage) before non-candidates; within each group sort by fitScore
-    const aCand = candidateIds.has(a.id) ? 0 : 1;
-    const bCand = candidateIds.has(b.id) ? 0 : 1;
-    if (aCand !== bCand) return aCand - bCand;
-    return order[a.fitScore] - order[b.fitScore];
-  });
+  }).sort((a, b) => order[a.fitScore] - order[b.fitScore]);
 
   // If Exa found results, extract web grants in parallel-ish (already have web results)
   let webGrants: ScoredGrant[] = [];

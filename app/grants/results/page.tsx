@@ -41,11 +41,69 @@ function FitBadge({ score }: { score: "High" | "Medium" | "Low" }) {
   );
 }
 
-function Spinner() {
+const LOADING_MESSAGES = [
+  "Scoring programs against your profile…",
+  "Checking eligibility requirements…",
+  "Ranking by fit score…",
+  "Almost there…",
+];
+
+function SkeletonCard() {
   return (
-    <div className="flex flex-col items-center justify-center py-24 gap-4">
-      <div className="w-12 h-12 border-4 border-[#1a5c3a]/20 border-t-[#1a5c3a] rounded-full animate-spin" />
-      <p className="text-gray-500 text-sm">Claude is scoring grants against your profile…</p>
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+      <div className="flex justify-between mb-3">
+        <div className="flex-1 space-y-2">
+          <div className="h-5 bg-gray-100 rounded-full w-20 animate-pulse" />
+          <div className="h-6 bg-gray-100 rounded-full w-2/3 animate-pulse" />
+          <div className="h-4 bg-gray-100 rounded-full w-1/2 animate-pulse" />
+        </div>
+        <div className="h-5 bg-gray-100 rounded-full w-24 animate-pulse" />
+      </div>
+      <div className="space-y-2 mb-4">
+        <div className="h-4 bg-gray-100 rounded-full w-full animate-pulse" />
+        <div className="h-4 bg-gray-100 rounded-full w-5/6 animate-pulse" />
+      </div>
+      <div className="bg-gray-50 rounded-lg p-3 mb-4 space-y-1.5">
+        <div className="h-3 bg-gray-100 rounded-full w-16 animate-pulse" />
+        <div className="h-4 bg-gray-100 rounded-full w-full animate-pulse" />
+        <div className="h-4 bg-gray-100 rounded-full w-4/5 animate-pulse" />
+      </div>
+      <div className="flex justify-between">
+        <div className="h-4 bg-gray-100 rounded-full w-32 animate-pulse" />
+        <div className="h-8 bg-gray-100 rounded-xl w-32 animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
+function Spinner({ profile = {} }: { profile?: Partial<CompanyProfile> }) {
+  const [msgIdx, setMsgIdx] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMsgIdx((i) => (i + 1) % LOADING_MESSAGES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div>
+      <div className="mb-6">
+        <div className="inline-flex items-center gap-2 bg-[#1a5c3a]/10 text-[#1a5c3a] rounded-full px-4 py-1.5 text-sm font-medium mb-4">
+          Step 2 of 3 — Grant Discovery
+        </div>
+        <div className="h-8 bg-gray-100 rounded-full w-2/3 mb-2 animate-pulse" />
+        <div className="flex items-center gap-2 mt-3">
+          <div className="w-4 h-4 border-2 border-[#1a5c3a]/30 border-t-[#1a5c3a] rounded-full animate-spin shrink-0" />
+          <p className="text-gray-500 text-sm transition-all">{LOADING_MESSAGES[msgIdx]}</p>
+        </div>
+      </div>
+      {[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}
+      {profile.geography && (
+        <p className="text-center text-xs text-gray-400 mt-6">
+          Searching grants for {profile.focusArea} in {profile.geography}
+        </p>
+      )}
     </div>
   );
 }
@@ -366,6 +424,60 @@ function BookmarkButton({ grant, profile, savedIds, onToggle, isLoggedIn }: {
   );
 }
 
+function EmailCapture({ profile }: { profile: CompanyProfile }) {
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setBusy(true);
+    await fetch("/api/email/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), source: "grants-results" }),
+    }).catch(() => null);
+    setBusy(false);
+    setSubmitted(true);
+  }
+
+  if (submitted) {
+    return (
+      <div className="mt-10 bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
+        <p className="font-semibold text-green-800 mb-1">You're on the list.</p>
+        <p className="text-green-700 text-sm">We'll email you when new {profile.focusArea} grants open in {profile.geography}.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-10 bg-gray-50 border border-gray-200 rounded-2xl p-6">
+      <h3 className="font-bold text-gray-900 mb-1">Get notified when new grants open</h3>
+      <p className="text-gray-500 text-sm mb-4">
+        We'll email you when new {profile.focusArea} funding opens in {profile.geography}. No spam, one-click unsubscribe.
+      </p>
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          required
+          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-[#1a5c3a] focus:ring-2 focus:ring-[#1a5c3a]/20"
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="bg-[#1a5c3a] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#174d31] disabled:opacity-60 transition"
+        >
+          {busy ? "…" : "Notify me"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function ResultsContent() {
   const searchParams = useSearchParams();
   const [grants, setGrants] = useState<ScoredGrant[]>([]);
@@ -449,7 +561,7 @@ function ResultsContent() {
     [grants]
   );
 
-  if (loading) return <Spinner />;
+  if (loading) return <Spinner profile={profile} />;
   if (anonLimit) return <UpgradePrompt type="signup" />;
   if (error) {
     const isLimit = error.toLowerCase().includes("limit") || error.includes("429");
@@ -594,6 +706,8 @@ function ResultsContent() {
           </div>
         ))}
       </div>
+
+      {!isLoggedIn && <EmailCapture profile={profile} />}
     </div>
   );
 }
