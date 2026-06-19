@@ -55,7 +55,7 @@ export default async function HomePage() {
             >
               Find my grants →
             </Link>
-            <span className="text-sm text-gray-400">Free — no credit card</span>
+            <span className="text-sm text-gray-400">Free · no credit card · no account needed</span>
           </div>
         </div>
 

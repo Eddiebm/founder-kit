@@ -27,7 +27,15 @@ interface GrantProgress {
   portalUrl?: string | null;
 }
 
-function FitBadge({ score }: { score: "High" | "Medium" | "Low" }) {
+function FitBadge({ score, pending }: { score: "High" | "Medium" | "Low"; pending?: boolean }) {
+  if (pending) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-400 border border-gray-200">
+        <div className="w-2.5 h-2.5 border border-gray-300 border-t-gray-500 rounded-full animate-spin" />
+        Scoring…
+      </span>
+    );
+  }
   const styles = {
     High: "bg-green-100 text-green-800 border border-green-200",
     Medium: "bg-yellow-100 text-yellow-800 border border-yellow-200",
@@ -481,7 +489,9 @@ function EmailCapture({ profile }: { profile: CompanyProfile }) {
 function ResultsContent() {
   const searchParams = useSearchParams();
   const [grants, setGrants] = useState<ScoredGrant[]>([]);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [scoring, setScoring] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [anonLimit, setAnonLimit] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -509,24 +519,79 @@ function ResultsContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(profile),
         });
+
+        // Non-streaming error responses (429, 500, etc.)
         if (!res.ok) {
           const data = await res.json().catch(() => ({})) as { error?: string; anon?: boolean };
           if (res.status === 429 && data.anon) { setAnonLimit(true); return; }
           throw new Error(data.error ?? `HTTP ${res.status}`);
         }
-        const data = await res.json();
-        setGrants(data);
-        ph?.capture("grant_search_completed", {
-          count: data.length,
-          high_fit: data.filter((g: { fitScore: string }) => g.fitScore === "High").length,
-          company: profile.companyName,
-          stage: profile.stage,
-          focus: profile.focusArea,
-        });
+
+        if (!res.body) throw new Error("No response body");
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          // Parse complete SSE events (separated by \n\n)
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+
+          for (const part of parts) {
+            const line = part.trim();
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event = JSON.parse(line.slice(6)) as {
+                type: "grant" | "score" | "done";
+                grant?: ScoredGrant;
+                id?: string;
+                fitScore?: "High" | "Medium" | "Low";
+                fitRationale?: string;
+              };
+
+              if (event.type === "grant" && event.grant) {
+                setLoading(false);
+                setScoring(true);
+                setGrants((prev) => [...prev, event.grant!]);
+                setPendingIds((prev) => new Set([...prev, event.grant!.id]));
+              } else if (event.type === "score" && event.id) {
+                setGrants((prev) =>
+                  prev.map((g) =>
+                    g.id === event.id
+                      ? { ...g, fitScore: event.fitScore!, fitRationale: event.fitRationale! }
+                      : g
+                  )
+                );
+                setPendingIds((prev) => { const n = new Set(prev); n.delete(event.id!); return n; });
+              } else if (event.type === "done") {
+                setScoring(false);
+                setLoading(false);
+                setGrants((prev) => {
+                  const order = { High: 0, Medium: 1, Low: 2 };
+                  const sorted = [...prev].sort((a, b) => order[a.fitScore] - order[b.fitScore]);
+                  ph?.capture("grant_search_completed", {
+                    count: sorted.length,
+                    high_fit: sorted.filter((g) => g.fitScore === "High").length,
+                    company: profile.companyName,
+                    stage: profile.stage,
+                    focus: profile.focusArea,
+                  });
+                  return sorted;
+                });
+              }
+            } catch { /* skip malformed events */ }
+          }
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Unknown error");
       } finally {
         setLoading(false);
+        setScoring(false);
       }
     }
     async function fetchSaved() {
@@ -596,7 +661,14 @@ function ResultsContent() {
         <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
           {grants.length} grants matched for <span className="text-[#1a5c3a] break-words">{profile.companyName}</span>
         </h2>
-        <p className="text-gray-500">{highFit.length} high fit · {medFit.length} medium fit · {lowFit.length} low fit</p>
+        {scoring ? (
+          <p className="text-gray-400 text-sm flex items-center gap-2">
+            <span className="inline-block w-3 h-3 border-2 border-gray-300 border-t-[#1a5c3a] rounded-full animate-spin" />
+            Scoring {pendingIds.size} remaining…
+          </p>
+        ) : (
+          <p className="text-gray-500">{highFit.length} high fit · {medFit.length} medium fit · {lowFit.length} low fit</p>
+        )}
       </div>
 
       {federalMatches.length > 0 && (
@@ -653,7 +725,7 @@ function ResultsContent() {
           <div key={grant.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
               <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-2 mb-1"><FitBadge score={grant.fitScore} /></div>
+                <div className="flex flex-wrap items-center gap-2 mb-1"><FitBadge score={grant.fitScore} pending={pendingIds.has(grant.id)} /></div>
                 <h3 className="text-lg font-bold text-gray-900 mt-1">{grant.name}</h3>
                 <p className="text-sm text-gray-500 font-medium">{grant.funder}</p>
               </div>

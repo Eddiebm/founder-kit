@@ -251,43 +251,50 @@ export async function POST(request: Request) {
 
   const profile: CompanyProfile = await request.json();
   const exaKey = process.env.EXA_API_KEY;
-
-  // Pre-filter grants by geography/stage before scoring — only score and return eligible grants
   const candidates = preFilterGrants(profile);
+  const key = openrouterKey;
+  const encoder = new TextEncoder();
 
-  // Run database scoring and Exa search in parallel
-  const [dbScores, webResults] = await Promise.all([
-    scoreDatabase(profile, openrouterKey),
-    exaKey ? searchExa(profile, exaKey) : Promise.resolve([] as ExaResult[]),
-  ]);
+  const body = new ReadableStream({
+    async start(controller) {
+      const emit = (event: object) =>
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
 
-  // Build scored results — only candidates, sorted by fitScore
-  const scoreMap = new Map(dbScores.map((s) => [s.id, s]));
-  const order = { High: 0, Medium: 1, Low: 2 };
+      // Phase 1: emit all candidate grants immediately — UI renders in <200ms
+      for (const grant of candidates) {
+        emit({
+          type: "grant",
+          grant: { ...grant, fitScore: "Low" as const, fitRationale: "Analyzing…", source: "database" as const },
+        });
+      }
 
-  const dbGrants: ScoredGrant[] = candidates.map((grant) => {
-    const score = scoreMap.get(grant.id);
-    return {
-      ...grant,
-      fitScore: score?.fitScore ?? "Low",
-      fitRationale: score?.fitRationale ?? "Review eligibility requirements carefully.",
-      source: "database" as const,
-    };
-  }).sort((a, b) => order[a.fitScore] - order[b.fitScore]);
+      // Phase 2: score + Exa in parallel
+      const [dbScores, webResults] = await Promise.all([
+        scoreDatabase(profile, key),
+        exaKey ? searchExa(profile, exaKey) : Promise.resolve([] as ExaResult[]),
+      ]);
 
-  // If Exa found results, extract web grants in parallel-ish (already have web results)
-  let webGrants: ScoredGrant[] = [];
-  if (webResults.length > 0) {
-    const existingNames = new Set(GRANT_PROGRAMS.map((g) => g.name));
-    webGrants = await extractWebGrants(webResults, profile, openrouterKey, existingNames);
-  }
+      // Phase 3: stream score updates so badges resolve one-by-one
+      for (const s of dbScores) {
+        emit({ type: "score", id: s.id, fitScore: s.fitScore, fitRationale: s.fitRationale });
+      }
 
-  if (session) await recordUsage(session.sub, "score");
+      // Phase 4: web grants (High-fit only)
+      if (webResults.length > 0) {
+        const existingNames = new Set(GRANT_PROGRAMS.map((g) => g.name));
+        const webGrants = await extractWebGrants(webResults, profile, key, existingNames);
+        for (const g of webGrants.filter((g) => g.fitScore === "High")) {
+          emit({ type: "grant", grant: g });
+        }
+      }
 
-  // Merge: web High-fit grants first, then database sorted, then web Medium/Low
-  const webHigh = webGrants.filter((g) => g.fitScore === "High");
-  const webOther = webGrants.filter((g) => g.fitScore !== "High");
-  const combined = [...webHigh, ...dbGrants, ...webOther];
+      if (session) await recordUsage(session.sub, "score");
+      emit({ type: "done" });
+      controller.close();
+    },
+  });
 
-  return Response.json(combined);
+  return new Response(body, {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+  });
 }
