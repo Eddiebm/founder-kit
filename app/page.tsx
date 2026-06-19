@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getDb } from "@/lib/db";
 import GrantResultAnimation from "./components/GrantResultAnimation";
 
+export const revalidate = 3600;
+
 async function getStats(): Promise<{ founders: number }> {
   try {
     const db = getDb();
@@ -17,8 +19,22 @@ async function getStats(): Promise<{ founders: number }> {
 export default async function HomePage() {
   const { founders } = await getStats();
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Founder Kit",
+    url: "https://myfounderkit.com",
+    description: "AI-powered grant matching and company formation for US startups. Matches founders to 100+ federal and private grant programs in 30 seconds.",
+    applicationCategory: "BusinessApplication",
+    offers: [
+      { "@type": "Offer", price: "0", priceCurrency: "USD", name: "Discovery" },
+      { "@type": "Offer", price: "29", priceCurrency: "USD", name: "Launchpad" },
+    ],
+  };
+
   return (
     <div className="max-w-4xl mx-auto pt-8 pb-16">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* Hero */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12 items-start">

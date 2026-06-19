@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cookies } from "next/headers";
 import "./globals.css";
 import NavBar from "./components/NavBar";
 import PostHogProvider from "./components/PostHogProvider";
-import { verifyToken } from "./lib/auth";
 
 export const metadata: Metadata = {
   title: "Founder Kit — Find Grants & Form Your Company",
@@ -26,14 +24,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("app_session")?.value;
-  const session = token ? await verifyToken(token) : null;
-  const user = session
-    ? { name: session.name, email: session.email, plan: session.plan }
-    : null;
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen bg-[#F0F4FA] flex flex-col">
@@ -48,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
               <span className="font-bold text-gray-900 text-base tracking-tight">Founder Kit</span>
             </Link>
-            <NavBar user={user} />
+            <NavBar />
           </div>
         </header>
         <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 sm:py-8">{children}</main>

@@ -2,15 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-interface NavBarProps {
-  user?: { name?: string; email: string; plan: string } | null;
-}
+type NavUser = { name?: string; email: string; plan: string } | null;
 
-export default function NavBar({ user }: NavBarProps) {
+export default function NavBar() {
   const router = useRouter();
+  const [user, setUser] = useState<NavUser>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => setUser(data.user ?? null))
+      .catch(() => {});
+  }, []);
 
   async function handleLogout() {
     setLoggingOut(true);
