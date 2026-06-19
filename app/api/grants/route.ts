@@ -40,6 +40,14 @@ async function searchExa(profile: CompanyProfile, apiKey: string): Promise<ExaRe
   return data.results ?? [];
 }
 
+function normalizeFocusArea(focusArea: string): string {
+  const map: Record<string, string> = {
+    "Climate & Environment": "Climate",
+    "Agriculture & Food": "Agriculture",
+  };
+  return map[focusArea] ?? focusArea;
+}
+
 function preFilterGrants(profile: CompanyProfile) {
   const stage = profile.stage?.toLowerCase() ?? "";
   const geo = profile.geography?.toLowerCase() ?? "";
@@ -47,7 +55,12 @@ function preFilterGrants(profile: CompanyProfile) {
 
   const geoIsUS = /united states|u\.s\.|^us$/.test(geo);
   const geoIsAfrica = /africa|ghana|nigeria|kenya|ethiopia|sub-saharan/.test(geo);
-  const geoIsGlobal = !geoIsUS && !geoIsAfrica;
+  const geoIsEurope = /europe/.test(geo);
+  const geoIsMENA = /middle east|north africa|mena/.test(geo);
+  const geoIsGlobal = !geoIsUS && !geoIsAfrica && !geoIsEurope && !geoIsMENA;
+
+  // Growth/Series B+ companies skip the stage filter — grants rarely cap by upper stage
+  const isGrowthStage = /growth|series b|series c/.test(stage);
 
   return GRANT_PROGRAMS.filter((g) => {
     if (g.requiresNonprofit && !isNonprofit) return false;
@@ -56,14 +69,20 @@ function preFilterGrants(profile: CompanyProfile) {
     const grantHasGlobal = grantGeos.includes("global");
     const grantHasUS = grantGeos.includes("united states");
     const grantHasAfrica = grantGeos.some((x) => x.includes("africa") || x.includes("sub-saharan"));
+    const grantHasEurope = grantGeos.some((x) => x.includes("europe"));
+    const grantHasMENA = grantGeos.some((x) => x.includes("middle east") || x.includes("north africa") || x.includes("mena"));
 
     if (geoIsUS && !grantHasUS && !grantHasGlobal) return false;
     if (geoIsAfrica && !grantHasAfrica && !grantHasGlobal) return false;
+    if (geoIsEurope && !grantHasEurope && !grantHasGlobal) return false;
+    if (geoIsMENA && !grantHasMENA && !grantHasGlobal) return false;
     if (geoIsGlobal && !grantHasGlobal && !grantHasUS && !grantHasAfrica) return false;
 
-    const grantStages = g.stages.map((s) => s.toLowerCase());
-    if (stage && !grantStages.some((s) => s.includes(stage) || stage.includes(s.replace(/-/g, "")))) {
-      return false;
+    if (!isGrowthStage && stage) {
+      const grantStages = g.stages.map((s) => s.toLowerCase());
+      if (!grantStages.some((s) => s.includes(stage) || stage.includes(s.replace(/-/g, "")))) {
+        return false;
+      }
     }
 
     return true;
@@ -120,7 +139,7 @@ Scoring:
 - Low: significant mismatch in eligibility or focus
 
 Prioritize programs matching funding type: ${profile.fundingType || "grant"}.
-Reference the applicant's actual sector (${profile.focusArea}) and geography (${profile.geography}) in each rationale.`,
+Reference the applicant's actual sector (${normalizeFocusArea(profile.focusArea ?? "")}) and geography (${profile.geography}) in each rationale.`,
         },
       ],
     }),
@@ -156,6 +175,7 @@ async function extractWebGrants(
     body: JSON.stringify({
       model: SCORING_MODEL,
       max_tokens: 2048,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "user",
@@ -170,15 +190,15 @@ ${Array.from(existingNames).join(", ")}
 WEB SEARCH RESULTS:
 ${webSummary}
 
-Extract any REAL, ACTIVE grant programs or funding opportunities from the results that are NOT in the already-known list and are genuinely relevant to the company profile. For each one found, return a JSON array where each element has:
+Extract any REAL, ACTIVE grant programs or funding opportunities from the results that are NOT in the already-known list and are genuinely relevant to the company profile. Return a JSON object with a "grants" array. Each element must have:
 - "id": slug like "funder-program-name" (lowercase, hyphens)
 - "name": official program name
 - "funder": organization offering the grant
 - "awardRange": funding amount (e.g. "$50K–$200K" or "Up to $500K")
 - "eligibilitySummary": 1-2 sentence eligibility description
-- "focusAreas": array from ["Healthcare","Education","Climate","Agriculture","Financial Inclusion","Other"]
-- "geographies": array from ["Sub-Saharan Africa","South Asia","Southeast Asia","Latin America","Global","United States"]
-- "stages": array from ["Pre-seed","Seed","Series A","Nonprofit"]
+- "focusAreas": array from ["Healthcare","Education","Climate","Agriculture","Financial Inclusion","Technology & AI","Media & Journalism","Arts & Culture","Research & Science","Other"]
+- "geographies": array from ["Sub-Saharan Africa","South Asia","Southeast Asia","Latin America","Europe","Middle East & North Africa","Global","United States"]
+- "stages": array from ["Pre-seed","Seed","Series A","Growth / Series B+","Nonprofit","Established Business"]
 - "requiresNonprofit": boolean
 - "url": the grant's actual URL from search results
 - "submissionType": "portal" (use "email" only if results explicitly say email submission, "invitation" if invite-only)
@@ -186,8 +206,7 @@ Extract any REAL, ACTIVE grant programs or funding opportunities from the result
 - "fitRationale": 1 specific sentence (15-25 words) explaining the fit
 - "source": "web"
 
-Only include real programs with verifiable URLs. If no new relevant grants are found, return an empty array [].
-Respond with ONLY the JSON array, no other text.`,
+Only include real programs with verifiable URLs. If no new relevant grants are found, return { "grants": [] }.`,
         },
       ],
     }),
@@ -198,13 +217,8 @@ Respond with ONLY the JSON array, no other text.`,
   const content = data.choices?.[0]?.message?.content ?? "";
 
   try {
-    const raw = content.trim();
-    const jsonStr = raw.startsWith("```")
-      ? raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
-      : raw;
-    const parsed = JSON.parse(jsonStr);
-    if (!Array.isArray(parsed)) return [];
-    return parsed as ScoredGrant[];
+    const parsed = JSON.parse(content);
+    return Array.isArray(parsed.grants) ? parsed.grants as ScoredGrant[] : [];
   } catch {
     return [];
   }
@@ -215,7 +229,7 @@ function buildProfileSummary(profile: CompanyProfile): string {
 One-liner: ${profile.oneLiner}
 Funding type sought: ${profile.fundingType}
 Stage: ${profile.stage}
-Industry / Focus area: ${profile.focusArea}
+Industry / Focus area: ${normalizeFocusArea(profile.focusArea ?? "")}
 Geography: ${profile.geography}
 Revenue / Business model: ${profile.revenueModel}
 Annual budget: ${profile.annualBudget}
