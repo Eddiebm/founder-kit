@@ -13,7 +13,11 @@ interface CompanyInfo {
   founderEmail: string;
   githubRepo: string;
   numShares: string;
-  incorporatorAddress: string;
+  industry: string;
+  addrStreet: string;
+  addrCity: string;
+  addrState: string;
+  addrZip: string;
   registeredAgentName: string;
   registeredAgentAddress: string;
 }
@@ -34,19 +38,13 @@ interface FoundationInfo {
 // ─── Default IP items ─────────────────────────────────────────────────────────
 
 const DEFAULT_IP_ITEMS: IPItem[] = [
-  { id: "clinical-ai", label: "Clinical AI Engine (streaming clinical decision support)", checked: true },
-  { id: "drug-safety", label: "Drug Safety Engine (offline-capable, client-side)", checked: true },
-  { id: "ghana-eml", label: "Ghana Essential Medicines List dataset", checked: true },
-  { id: "offline-queue", label: "Offline Queue & sync architecture", checked: true },
-  { id: "clinical-pipeline", label: "Clinical Data Pipeline (encounters, vitals, summaries)", checked: true },
-  { id: "org-portal", label: "Organization Portal (multi-facility B2B layer)", checked: true },
-  { id: "outbreak", label: "Outbreak Surveillance system", checked: true },
-  { id: "lab-scanner", label: "Lab Report Scanner", checked: true },
-  { id: "trad-medicine", label: "Traditional Medicine Module", checked: true },
-  { id: "python-backend", label: "Python Analytics Backend", checked: true },
-  { id: "trademark", label: "MedOS trademark and trade name", checked: true },
-  { id: "domain", label: "medosafrica.org domain and web properties", checked: true },
-  { id: "source-code", label: "All source code in GitHub repository", checked: true },
+  { id: "source-code", label: "All source code and software in all repositories", checked: true },
+  { id: "domain", label: "Company domain name(s) and web properties", checked: true },
+  { id: "trademark", label: "Company name, brand, logo, and trademarks", checked: true },
+  { id: "product-design", label: "Product designs, wireframes, and UI/UX specifications", checked: true },
+  { id: "algorithms", label: "Proprietary algorithms and software architecture", checked: true },
+  { id: "data-models", label: "Proprietary data models, schemas, and training datasets", checked: true },
+  { id: "trade-secrets", label: "Trade secrets, know-how, and confidential business methods", checked: true },
 ];
 
 // ─── Document generators ─────────────────────────────────────────────────────
@@ -178,7 +176,7 @@ function generateNonprofitArticles(
   const agent = info.registeredAgentName || "[REGISTERED AGENT NAME]";
   const agentAddr = info.registeredAgentAddress || `[REGISTERED AGENT ADDRESS], ${stateInfo.name}`;
   const incorporator = info.founderName || "[FOUNDER NAME]";
-  const incorporatorAddr = info.incorporatorAddress || "[INCORPORATOR MAILING ADDRESS]";
+  const incorporatorAddr = [info.addrStreet, info.addrCity, info.addrState, info.addrZip].filter(Boolean).join(", ") || "[INCORPORATOR MAILING ADDRESS]";
   const purpose = foundation.foundationPurpose ||
     "To provide free clinical decision support to frontline health workers in sub-Saharan Africa";
   const docTitle = stateInfo.nonprofitDocName.toUpperCase();
@@ -264,7 +262,7 @@ function generateCertificateOfIncorporation(info: CompanyInfo, stateInfo: StateF
   const agentAddr = info.registeredAgentAddress || `[REGISTERED AGENT ADDRESS], ${stateInfo.name}`;
   const shares = parseInt(info.numShares || "10000000").toLocaleString();
   const incorporator = info.founderName || "[FOUNDER NAME]";
-  const incorporatorAddr = info.incorporatorAddress || "[INCORPORATOR MAILING ADDRESS]";
+  const incorporatorAddr = [info.addrStreet, info.addrCity, info.addrState, info.addrZip].filter(Boolean).join(", ") || "[INCORPORATOR MAILING ADDRESS]";
   const stateName = stateInfo.name;
   const statute = stateInfo.corpStatute;
   const docTitle = stateInfo.corpDocName.toUpperCase();
@@ -722,18 +720,22 @@ export default function WizardPage() {
   const [info, setInfo] = useState<CompanyInfo>({
     founderName: "",
     companyName: "",
-    state: "DE",
+    state: "",
     incorporationDate: "",
     founderEmail: "",
     githubRepo: "",
     numShares: "10000000",
-    incorporatorAddress: "",
+    industry: "",
+    addrStreet: "",
+    addrCity: "",
+    addrState: "",
+    addrZip: "",
     registeredAgentName: "",
     registeredAgentAddress: "",
   });
 
   // Step 2
-  const [ipItems, setIpItems] = useState<IPItem[]>([]);
+  const [ipItems, setIpItems] = useState<IPItem[]>(DEFAULT_IP_ITEMS);
   const [customInput, setCustomInput] = useState("");
 
   // Step 3
@@ -964,7 +966,7 @@ export default function WizardPage() {
               label="Company Name"
               value={info.companyName}
               onChange={(v) => setInfo((p) => ({ ...p, companyName: v }))}
-              placeholder="MedOS Inc"
+              placeholder="Acme Inc"
             />
             <div className="mb-5">
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -1007,13 +1009,70 @@ export default function WizardPage() {
               onChange={(v) => setInfo((p) => ({ ...p, githubRepo: v }))}
               placeholder="https://github.com/yourorg/yourrepo"
             />
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Industry
+              </label>
+              <select
+                value={info.industry}
+                onChange={(e) => setInfo((p) => ({ ...p, industry: e.target.value }))}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm focus:outline-none focus:ring-2 transition-all appearance-none"
+              >
+                <option value="">Select your industry…</option>
+                <option value="Technology & Software">Technology &amp; Software</option>
+                <option value="Artificial Intelligence">Artificial Intelligence / ML</option>
+                <option value="Healthcare & Biotech">Healthcare &amp; Biotech</option>
+                <option value="Education">Education / EdTech</option>
+                <option value="Financial Services & Fintech">Financial Services &amp; Fintech</option>
+                <option value="E-commerce & Retail">E-commerce &amp; Retail</option>
+                <option value="Media & Entertainment">Media &amp; Entertainment</option>
+                <option value="Climate & Clean Energy">Climate &amp; Clean Energy</option>
+                <option value="Manufacturing">Manufacturing</option>
+                <option value="Professional Services">Professional Services</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Used to assign the correct NAICS industry code when filing.</p>
+            </div>
             <InputField
-              label="Incorporator Mailing Address"
-              value={info.incorporatorAddress}
-              onChange={(v) => setInfo((p) => ({ ...p, incorporatorAddress: v }))}
-              placeholder="123 Main St, City, State, ZIP"
+              label="Street Address"
+              value={info.addrStreet}
+              onChange={(v) => setInfo((p) => ({ ...p, addrStreet: v }))}
+              placeholder="123 Main St"
               hint="Your personal mailing address — appears on the Certificate of Incorporation."
             />
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="col-span-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">City</label>
+                <input
+                  type="text"
+                  value={info.addrCity}
+                  onChange={(e) => setInfo((p) => ({ ...p, addrCity: e.target.value }))}
+                  placeholder="San Francisco"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">State</label>
+                <input
+                  type="text"
+                  value={info.addrState}
+                  onChange={(e) => setInfo((p) => ({ ...p, addrState: e.target.value }))}
+                  placeholder="CA"
+                  maxLength={2}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 transition-all uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">ZIP</label>
+                <input
+                  type="text"
+                  value={info.addrZip}
+                  onChange={(e) => setInfo((p) => ({ ...p, addrZip: e.target.value }))}
+                  placeholder="94102"
+                  maxLength={10}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 transition-all"
+                />
+              </div>
+            </div>
             <div className="mb-5 p-4 rounded-xl bg-amber-50 border border-amber-100">
               <p className="text-xs font-semibold text-amber-800 mb-1">{stateInfo.name} Registered Agent Required</p>
               <p className="text-xs text-amber-700 mb-2">
@@ -1049,9 +1108,11 @@ export default function WizardPage() {
         {step === 2 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-1">IP Inventory</h2>
-            <p className="text-sm text-gray-500 mb-6">
-              Select the intellectual property assets to assign to the corporation. All are
-              pre-checked. Add custom items below.
+            <p className="text-sm text-gray-500 mb-2">
+              Select the IP assets to assign from you (the founder) to the corporation. Common items are pre-checked — uncheck anything that doesn&apos;t apply, and add anything specific to your product below.
+            </p>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-6">
+              <span className="font-semibold">Why this matters:</span> Investors and acquirers will verify the company owns its IP. This assignment ensures nothing stays in your personal name.
             </p>
 
             <div className="space-y-2 mb-6">
@@ -1185,7 +1246,7 @@ export default function WizardPage() {
                     onChange={(e) =>
                       setFoundation((p) => ({ ...p, foundationName: e.target.value }))
                     }
-                    placeholder="MedOS Africa Foundation"
+                    placeholder="Acme Foundation"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none"
                   />
                 </div>
