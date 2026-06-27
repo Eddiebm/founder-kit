@@ -56,8 +56,20 @@ async function sendPaymentFailedEmail(email: string, name: string | null, portal
   }).catch((err) => console.error("PAYMENT_FAILED_EMAIL_ERROR:", err));
 }
 
+const NAICS_BY_INDUSTRY: Record<string, string> = {
+  "Technology & Software": "511210",
+  "Artificial Intelligence": "541715",
+  "Healthcare & Biotech": "621999",
+  "Education": "611710",
+  "Financial Services & Fintech": "522390",
+  "E-commerce & Retail": "454110",
+  "Media & Entertainment": "512110",
+  "Climate & Clean Energy": "221118",
+  "Manufacturing": "332999",
+  "Professional Services": "541990",
+};
+
 function parseAddress(raw: string, fallbackState: string) {
-  // Attempt to parse "123 Main St, City, ST 12345" — best effort
   const parts = raw.split(",").map((s) => s.trim());
   if (parts.length >= 3) {
     const stateZip = parts[parts.length - 1].trim().split(" ");
@@ -101,7 +113,10 @@ async function handleFormationPayment(
   const nameParts = ((wd.founderName as string) || "Founder Name").split(" ");
   const firstName = nameParts[0];
   const lastName = nameParts.slice(1).join(" ") || "Name";
-  const addr = parseAddress((wd.incorporatorAddress as string) || "", order.state);
+  const addr = wd.addrStreet
+    ? { street: wd.addrStreet as string, city: wd.addrCity as string, state: (wd.addrState as string) || order.state, zip: wd.addrZip as string, country: "US" }
+    : parseAddress((wd.incorporatorAddress as string) || "", order.state);
+  const naicsCode = NAICS_BY_INDUSTRY[wd.industry as string] ?? "541990";
 
   // Step 1: Create Doola customer
   const custRes = await fetch("https://api.doola.com/v1/partner/customers", {
@@ -135,7 +150,7 @@ async function handleFormationPayment(
     entityType: isCCorp ? "CCorp" : "LLC",
     state: order.state,
     nameOptions: [{ name: order.company_name, preference: 1 }],
-    naicsCode: "541990",
+    naicsCode,
     description: (wd.oneLiner as string) || order.company_name,
     responsibleParty: { ...execMember },
   };

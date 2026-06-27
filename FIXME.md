@@ -14,9 +14,9 @@ Last updated: 2026-06-19.
 
 - [ ] **Annual Stripe price ID missing** — `STRIPE_PRO_ANNUAL_PRICE_ID` is referenced in `app/api/stripe/checkout/route.ts` but not in `.env.example`. Annual billing will throw if someone tries to upgrade annually without this set.
 
-- [ ] **Doola webhook not handled** — Doola fires `company_formation_submitted`, `company_formation_completed`, `document_aoo_uploaded`, `document_einletter_uploaded` events. No webhook endpoint exists to receive them and update `formation_orders.status`. Users get no real-time status updates beyond the initial "payment received" banner.
+- ✅ **Doola webhook handled** — `app/api/doola/webhook/route.ts` receives filing events and updates `formation_orders.status` + sends Resend emails. Register the endpoint URL in Doola dashboard once API key is set.
 
-- [ ] **Formation order admin view missing** — No way to see pending formation orders without querying Neon directly. Need a simple `/command` or admin page listing orders with status so manual processing is possible while Doola key is missing.
+- ✅ **Formation order admin view** — `/admin?key=AUDIT_SECRET` lists all orders with status badges and warns when orders are stuck at `payment_complete` with no Doola ID.
 
 ## Medium (quality)
 

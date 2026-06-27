@@ -25,6 +25,9 @@ export interface GrantProgram {
   submissionType: "portal" | "email" | "invitation";
   submissionEmail?: string;
   portalLabel?: string;
+  deadline?: string;
+  isActive?: boolean;
+  lastVerified?: string;
 }
 
 export interface ScoredGrant extends GrantProgram {

@@ -1,6 +1,8 @@
 export const runtime = "nodejs";
 
 import { getDb } from "@/lib/db";
+import { GRANT_PROGRAMS } from "@/lib/grants";
+import type { GrantProgram } from "@/lib/types";
 
 const STATUS_MAP: Record<string, string> = {
   company_formation_submitted: "filing_submitted",
@@ -31,6 +33,87 @@ const EMAIL_COPY: Record<string, { subject: string; headline: string; body: stri
     body: "Your Employer Identification Number (EIN) letter from the IRS is ready. With this in hand you can open a business bank account and start hiring.",
   },
 };
+
+function topGrantsForProfile(
+  profile: Record<string, string>,
+  limit = 5
+): GrantProgram[] {
+  const geo = profile.geography ?? "";
+  const stage = profile.stage ?? "";
+  const focus = profile.focusArea ?? "";
+  const isNonprofit = profile.isNonprofit === "true" || profile.isNonprofit === "Yes";
+
+  return GRANT_PROGRAMS
+    .filter((g) => !g.requiresNonprofit || isNonprofit)
+    .map((g) => {
+      let score = 0;
+      if (g.geographies.includes(geo) || g.geographies.includes("Global")) score += 3;
+      if (g.stages.includes(stage)) score += 3;
+      if (g.focusAreas.includes(focus)) score += 2;
+      return { g, score };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ g }) => g);
+}
+
+async function sendEinGrantEmail(
+  email: string,
+  companyName: string,
+  profile: Record<string, string>,
+  apiKey: string
+) {
+  const matches = topGrantsForProfile(profile);
+  if (!matches.length) return;
+
+  const grantRows = matches
+    .map(
+      (g) =>
+        `<tr>
+          <td style="padding:12px 0;border-bottom:1px solid #f3f4f6;vertical-align:top;">
+            <strong style="color:#111827;font-size:14px;">${g.name}</strong><br>
+            <span style="color:#6b7280;font-size:13px;">${g.funder} · ${g.awardRange}</span>
+          </td>
+          <td style="padding:12px 0 12px 16px;border-bottom:1px solid #f3f4f6;vertical-align:middle;text-align:right;">
+            <a href="${g.url}" style="color:#1B3F7B;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;">Apply →</a>
+          </td>
+        </tr>`
+    )
+    .join("");
+
+  const firstName = email.split("@")[0];
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Founder Kit <noreply@bannermanmenson.com>",
+      to: [email],
+      subject: `${companyName} — Your EIN is ready. Here are grants you can now apply for.`,
+      html: `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:32px 16px;">
+  <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+    <div style="background:#1B3F7B;padding:24px 32px;">
+      <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">Your EIN is in hand — time to raise non-dilutive capital</h1>
+    </div>
+    <div style="padding:32px;">
+      <p style="margin:0 0 8px;color:#374151;font-size:15px;">Hi ${firstName},</p>
+      <p style="margin:0 0 20px;color:#374151;font-size:15px;">
+        <strong>${companyName}</strong> now has an active EIN — which means you're eligible to apply for grants that require a legal entity. Here are ${matches.length} programs matched to your profile:
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        ${grantRows}
+      </table>
+      <a href="https://myfounderkit.com/grants/saved" style="display:inline-block;background:#1B3F7B;color:#fff;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none;">View your full grant pipeline →</a>
+      <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">These are programs from your saved grants. Log in to track applications and deadlines.</p>
+    </div>
+  </div>
+</body></html>`,
+    }),
+  }).catch((err) => console.error("EIN_GRANT_EMAIL_ERROR:", err));
+}
 
 async function sendStatusEmail(
   email: string,
@@ -114,6 +197,22 @@ export async function POST(request: Request) {
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey) {
     await sendStatusEmail(order.email, order.company_name, event.type, resendKey);
+
+    if (event.type === "document_einletter_uploaded") {
+      const profileRows = await db(
+        `SELECT sg.profile_data
+         FROM saved_grants sg
+         JOIN users u ON u.id = sg.user_id
+         WHERE u.email = $1 AND sg.profile_data IS NOT NULL
+         ORDER BY sg.created_at DESC
+         LIMIT 1`,
+        [order.email]
+      ) as { profile_data: Record<string, string> }[];
+
+      if (profileRows.length) {
+        await sendEinGrantEmail(order.email, order.company_name, profileRows[0].profile_data, resendKey);
+      }
+    }
   }
 
   return Response.json({ ok: true });

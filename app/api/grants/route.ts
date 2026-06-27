@@ -3,6 +3,7 @@ import type { CompanyProfile, ScoredGrant } from "@/lib/types";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
 import { getMonthlyCount, getLimit, recordUsage } from "@/lib/usage";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { getDb } from "@/lib/db";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const SCORING_MODEL = "anthropic/claude-haiku-4-5-20251001";
@@ -48,7 +49,17 @@ function normalizeFocusArea(focusArea: string): string {
   return map[focusArea] ?? focusArea;
 }
 
-function preFilterGrants(profile: CompanyProfile) {
+async function loadInactiveGrantIds(): Promise<Set<string>> {
+  try {
+    const db = getDb();
+    const rows = await db("SELECT grant_id FROM grant_overrides WHERE is_active = false") as { grant_id: string }[];
+    return new Set(rows.map((r) => r.grant_id));
+  } catch {
+    return new Set();
+  }
+}
+
+function preFilterGrants(profile: CompanyProfile, inactiveIds: Set<string> = new Set()) {
   const stage = profile.stage?.toLowerCase() ?? "";
   const geo = profile.geography?.toLowerCase() ?? "";
   const isNonprofit = profile.isNonprofit?.toLowerCase() === "yes";
@@ -63,6 +74,7 @@ function preFilterGrants(profile: CompanyProfile) {
   const isGrowthStage = /growth|series b|series c/.test(stage);
 
   return GRANT_PROGRAMS.filter((g) => {
+    if (inactiveIds.has(g.id)) return false;
     if (g.requiresNonprofit && !isNonprofit) return false;
 
     const grantGeos = g.geographies.map((x) => x.toLowerCase());
@@ -91,9 +103,10 @@ function preFilterGrants(profile: CompanyProfile) {
 
 async function scoreDatabase(
   profile: CompanyProfile,
-  apiKey: string
+  apiKey: string,
+  inactiveIds: Set<string> = new Set()
 ): Promise<{ id: string; fitScore: "High" | "Medium" | "Low"; fitRationale: string }[]> {
-  const candidates = preFilterGrants(profile);
+  const candidates = preFilterGrants(profile, inactiveIds);
   if (candidates.length === 0) return [];
 
   const grantsJson = JSON.stringify(
@@ -265,7 +278,8 @@ export async function POST(request: Request) {
 
   const profile: CompanyProfile = await request.json();
   const exaKey = process.env.EXA_API_KEY;
-  const candidates = preFilterGrants(profile);
+  const inactiveIds = await loadInactiveGrantIds();
+  const candidates = preFilterGrants(profile, inactiveIds);
   const key = openrouterKey;
   const encoder = new TextEncoder();
 
@@ -284,7 +298,7 @@ export async function POST(request: Request) {
 
       // Phase 2: score + Exa in parallel
       const [dbScores, webResults] = await Promise.all([
-        scoreDatabase(profile, key),
+        scoreDatabase(profile, key, inactiveIds),
         exaKey ? searchExa(profile, exaKey) : Promise.resolve([] as ExaResult[]),
       ]);
 

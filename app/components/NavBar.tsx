@@ -39,8 +39,8 @@ export default function NavBar() {
       <Link href="/blog" className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
         Blog
       </Link>
-      <Link href="/saved" className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
-        Saved
+      <Link href="/grants/saved" className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors">
+        Pipeline
       </Link>
       {user ? (
         <div className="flex items-center gap-1 ml-1 pl-2 border-l border-gray-200">
