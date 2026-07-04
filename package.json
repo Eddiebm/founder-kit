@@ -2,6 +2,9 @@
   "name": "formation-wizard",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +17,7 @@
     "@types/pg": "^8.20.0",
     "gray-matter": "^4.0.3",
     "jose": "^6.2.3",
-    "next": "^16.2.9",
+    "next": "^16.2.10",
     "next-mdx-remote": "^6.0.0",
     "pg": "^8.21.0",
     "posthog-js": "^1.390.2",
