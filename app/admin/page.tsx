@@ -27,19 +27,18 @@ interface FormationOrder {
   updated_at: string;
 }
 
-export default async function AdminPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ key?: string }>;
-}) {
-  const { key } = await searchParams;
-  const secret = process.env.AUDIT_SECRET;
+import { headers } from "next/headers";
 
-  if (!secret || key !== secret) {
+export default async function AdminPage() {
+  const hdrs = await headers();
+  const secret = process.env.AUDIT_SECRET;
+  const auth = hdrs.get("authorization") ?? "";
+
+  if (!secret || auth !== `Bearer ${secret}`) {
     return (
       <div style={{ padding: 40, fontFamily: "monospace" }}>
         <p style={{ color: "#dc2626" }}>401 Unauthorized</p>
-        <p style={{ color: "#6b7280", fontSize: 13 }}>Pass ?key=AUDIT_SECRET</p>
+        <p style={{ color: "#6b7280", fontSize: 13 }}>Pass Authorization: Bearer &lt;AUDIT_SECRET&gt;</p>
       </div>
     );
   }

@@ -4,6 +4,10 @@ import { getDb } from "@/lib/db";
 import { GRANT_PROGRAMS } from "@/lib/grants";
 import type { GrantProgram } from "@/lib/types";
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;");
+}
+
 const STATUS_MAP: Record<string, string> = {
   company_formation_submitted: "filing_submitted",
   company_formation_completed: "filing_complete",
@@ -82,7 +86,8 @@ async function sendEinGrantEmail(
     )
     .join("");
 
-  const firstName = email.split("@")[0];
+  const firstName = escapeHtml(email.split("@")[0]);
+  const safeCompany = escapeHtml(companyName);
 
   await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -90,7 +95,7 @@ async function sendEinGrantEmail(
     body: JSON.stringify({
       from: "Founder Kit <noreply@bannermanmenson.com>",
       to: [email],
-      subject: `${companyName} — Your EIN is ready. Here are grants you can now apply for.`,
+      subject: `${safeCompany} — Your EIN is ready. Here are grants you can now apply for.`,
       html: `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:32px 16px;">
@@ -101,7 +106,7 @@ async function sendEinGrantEmail(
     <div style="padding:32px;">
       <p style="margin:0 0 8px;color:#374151;font-size:15px;">Hi ${firstName},</p>
       <p style="margin:0 0 20px;color:#374151;font-size:15px;">
-        <strong>${companyName}</strong> now has an active EIN — which means you're eligible to apply for grants that require a legal entity. Here are ${matches.length} programs matched to your profile:
+        <strong>${safeCompany}</strong> now has an active EIN — which means you're eligible to apply for grants that require a legal entity. Here are ${matches.length} programs matched to your profile:
       </p>
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
         ${grantRows}
@@ -123,14 +128,15 @@ async function sendStatusEmail(
 ) {
   const copy = EMAIL_COPY[eventType];
   if (!copy) return;
-  const firstName = email.split("@")[0];
+  const firstName = escapeHtml(email.split("@")[0]);
+  const safeCompany = escapeHtml(companyName);
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: "Founder Kit <noreply@bannermanmenson.com>",
       to: [email],
-      subject: `${companyName} — ${copy.subject}`,
+      subject: `${safeCompany} — ${copy.subject}`,
       html: `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:32px 16px;">
@@ -141,7 +147,7 @@ async function sendStatusEmail(
     <div style="padding:32px;">
       <p style="margin:0 0 16px;color:#374151;font-size:15px;">Hi ${firstName},</p>
       <p style="margin:0 0 16px;color:#374151;font-size:15px;">${copy.body}</p>
-      <p style="margin:0 0 24px;color:#374151;font-size:15px;">Company: <strong>${companyName}</strong></p>
+      <p style="margin:0 0 24px;color:#374151;font-size:15px;">Company: <strong>${safeCompany}</strong></p>
       <a href="https://myfounderkit.com/wizard" style="display:inline-block;background:#1B3F7B;color:#fff;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none;">View Formation Status</a>
       <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;">Questions? Reply to this email and we'll help.</p>
     </div>

@@ -1,5 +1,9 @@
 import { getDb } from "@/lib/db";
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;");
+}
+
 async function verifyStripeSignature(body: string, signature: string, secret: string): Promise<boolean> {
   const parts = signature.split(",").reduce<Record<string, string>>((acc, p) => {
     const [k, v] = p.split("=");
@@ -28,7 +32,7 @@ async function verifyStripeSignature(body: string, signature: string, secret: st
 async function sendPaymentFailedEmail(email: string, name: string | null, portalUrl: string) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return;
-  const firstName = name?.split(" ")[0] ?? "there";
+  const firstName = escapeHtml(name?.split(" ")[0] ?? "there");
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -210,6 +214,16 @@ export async function POST(request: Request) {
     const session = event.data.object;
 
     if (session.metadata?.type === "formation") {
+      const stripeSessionId = session.id as string;
+      if (stripeSessionId) {
+        const existing = await db(
+          "SELECT status FROM formation_orders WHERE stripe_session_id = $1",
+          [stripeSessionId]
+        ) as { status: string }[];
+        if (existing.length && existing[0].status !== "pending_payment") {
+          return Response.json({ ok: true });
+        }
+      }
       await handleFormationPayment(session, db);
       return Response.json({ ok: true });
     }
