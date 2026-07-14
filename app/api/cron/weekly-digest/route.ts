@@ -5,6 +5,10 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 function unsubToken(userId: string): string {
   const secret = process.env.UNSUBSCRIBE_SECRET ?? process.env.JWT_SECRET;
   if (!secret) throw new Error("UNSUBSCRIBE_SECRET or JWT_SECRET is not set");
@@ -27,7 +31,7 @@ function buildEmail(
   userId: string,
   unsubscribeToken: string
 ): string {
-  const firstName = userName?.split(" ")[0] ?? "there";
+  const firstName = escapeHtml(userName?.split(" ")[0] ?? "there");
   const grantHtml = grants
     .map(
       (g) => `
@@ -90,6 +94,24 @@ export async function GET(req: Request) {
       unsubscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  await db(`
+    CREATE TABLE IF NOT EXISTS cron_runs (
+      id SERIAL PRIMARY KEY,
+      cron_name TEXT NOT NULL,
+      run_date DATE NOT NULL,
+      UNIQUE(cron_name, run_date)
+    )
+  `);
+
+  const inserted = await db(
+    `INSERT INTO cron_runs (cron_name, run_date) VALUES ('weekly-digest', CURRENT_DATE)
+     ON CONFLICT (cron_name, run_date) DO NOTHING
+     RETURNING id`
+  );
+  if (!inserted.length) {
+    return Response.json({ ok: true, skipped: "already ran today" });
+  }
 
   // Get all users with at least one saved profile, excluding unsubscribed
   const rows = await db(`
