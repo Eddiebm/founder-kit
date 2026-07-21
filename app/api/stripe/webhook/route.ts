@@ -60,33 +60,7 @@ async function sendPaymentFailedEmail(email: string, name: string | null, portal
   }).catch((err) => console.error("PAYMENT_FAILED_EMAIL_ERROR:", err));
 }
 
-const NAICS_BY_INDUSTRY: Record<string, string> = {
-  "Technology & Software": "511210",
-  "Artificial Intelligence": "541715",
-  "Healthcare & Biotech": "621999",
-  "Education": "611710",
-  "Financial Services & Fintech": "522390",
-  "E-commerce & Retail": "454110",
-  "Media & Entertainment": "512110",
-  "Climate & Clean Energy": "221118",
-  "Manufacturing": "332999",
-  "Professional Services": "541990",
-};
 
-function parseAddress(raw: string, fallbackState: string) {
-  const parts = raw.split(",").map((s) => s.trim());
-  if (parts.length >= 3) {
-    const stateZip = parts[parts.length - 1].trim().split(" ");
-    return {
-      street: parts[0],
-      city: parts[parts.length - 2],
-      state: stateZip[0] || fallbackState,
-      zip: stateZip[1] || "",
-      country: "US",
-    };
-  }
-  return { street: raw || "Address on file", city: "", state: fallbackState, zip: "", country: "US" };
-}
 
 async function handleFormationPayment(
   session: { metadata?: Record<string, string>; payment_intent?: string },
@@ -95,106 +69,34 @@ async function handleFormationPayment(
   const orderId = session.metadata?.order_id;
   if (!orderId) return;
 
-  const rows = await db("SELECT * FROM formation_orders WHERE id = $1", [orderId]) as Record<string, unknown>[];
+  const rows = await db("SELECT id FROM formation_orders WHERE id = $1", [orderId]) as { id: string }[];
   if (!rows.length) return;
-  const order = rows[0] as {
-    id: string; email: string; company_name: string; state: string;
-    entity_type: string; wizard_data: Record<string, string>;
-  };
 
   await db(
-    "UPDATE formation_orders SET status = 'payment_complete', stripe_payment_intent = $1, updated_at = NOW() WHERE id = $2",
+    "UPDATE formation_orders SET status = 'paid', stripe_payment_intent = $1, updated_at = NOW() WHERE id = $2",
     [session.payment_intent ?? null, orderId]
   );
 
-  const doolaKey = process.env.DOOLA_API_KEY;
-  if (!doolaKey) {
-    console.error("DOOLA_API_KEY not set — formation order", orderId, "needs manual processing");
+  // Hand off to Delaware formation pipeline
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://myfounderkit.com";
+  const adminSecret = process.env.AUDIT_SECRET;
+  if (!adminSecret) {
+    console.error("AUDIT_SECRET not set — cannot trigger Delaware filing for order", orderId);
     return;
   }
 
-  const wd = order.wizard_data;
-  const nameParts = ((wd.founderName as string) || "Founder Name").split(" ");
-  const firstName = nameParts[0];
-  const lastName = nameParts.slice(1).join(" ") || "Name";
-  const addr = wd.addrStreet
-    ? { street: wd.addrStreet as string, city: wd.addrCity as string, state: (wd.addrState as string) || order.state, zip: wd.addrZip as string, country: "US" }
-    : parseAddress((wd.incorporatorAddress as string) || "", order.state);
-  const naicsCode = NAICS_BY_INDUSTRY[wd.industry as string] ?? "541990";
-
-  // Step 1: Create Doola customer
-  const custRes = await fetch("https://api.doola.com/v1/partner/customers", {
+  const fileRes = await fetch(`${appUrl}/api/delaware/file`, {
     method: "POST",
     headers: {
-      Authorization: doolaKey,
       "Content-Type": "application/json",
-      "Idempotency-Key": `customer-${orderId}`,
+      "x-admin-secret": adminSecret,
     },
-    body: JSON.stringify({
-      email: order.email,
-      firstName,
-      lastName,
-      countryOfResidence: "USA",
-    }),
+    body: JSON.stringify({ orderId }),
   });
 
-  if (!custRes.ok) {
-    console.error("Doola customer error:", await custRes.text());
-    await db("UPDATE formation_orders SET status = 'failed', updated_at = NOW() WHERE id = $1", [orderId]);
-    return;
+  if (!fileRes.ok) {
+    console.error("Delaware file trigger failed for order", orderId, await fileRes.text());
   }
-
-  const customer = await custRes.json() as { id: string };
-
-  // Step 2: Create Doola company
-  const isCCorp = order.entity_type === "ccorp";
-  const execMember = { legalFirstName: firstName, legalLastName: lastName, isNaturalPerson: true, address: addr };
-  const companyPayload: Record<string, unknown> = {
-    doolaCustomerId: customer.id,
-    entityType: isCCorp ? "CCorp" : "LLC",
-    state: order.state,
-    nameOptions: [{ name: order.company_name, preference: 1 }],
-    naicsCode,
-    description: (wd.oneLiner as string) || order.company_name,
-    responsibleParty: { ...execMember },
-  };
-
-  if (isCCorp) {
-    companyPayload.executiveMembers = ["President", "Secretary", "Treasurer", "Director"].map((role) => ({
-      ...execMember, role,
-    }));
-    companyPayload.ccorpValuation = {
-      authorizedShares: parseInt((wd.numShares as string) || "10000000"),
-      parValue: 0.0001,
-    };
-  } else {
-    companyPayload.members = [{ ...execMember, ownershipPercent: 100 }];
-  }
-
-  const compRes = await fetch("https://api.doola.com/v1/partner/companies", {
-    method: "POST",
-    headers: {
-      Authorization: doolaKey,
-      "Content-Type": "application/json",
-      "Idempotency-Key": `company-${orderId}`,
-    },
-    body: JSON.stringify(companyPayload),
-  });
-
-  if (!compRes.ok) {
-    console.error("Doola company error:", await compRes.text());
-    await db(
-      "UPDATE formation_orders SET status = 'failed', doola_customer_id = $1, updated_at = NOW() WHERE id = $2",
-      [customer.id, orderId]
-    );
-    return;
-  }
-
-  const company = await compRes.json() as { id: string };
-  await db(
-    "UPDATE formation_orders SET status = 'formation_submitted', doola_customer_id = $1, doola_company_id = $2, updated_at = NOW() WHERE id = $3",
-    [customer.id, company.id, orderId]
-  );
 }
 
 export async function POST(request: Request) {

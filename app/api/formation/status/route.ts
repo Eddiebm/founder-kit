@@ -9,9 +9,16 @@ export async function GET(request: Request) {
 
   const db = getDb();
   const rows = await db(
-    "SELECT id, company_name, state, entity_type, status, doola_company_id, created_at FROM formation_orders WHERE id = $1",
+    `SELECT
+       id, company_name, state, entity_type, status, last_error,
+       de_sos_filing_id, de_sos_entity_number, de_sos_submitted_at, de_sos_approved_at,
+       northwest_order_id, northwest_agent_name, northwest_agent_address,
+       ein_number, ein_applied_at, ein_received_at,
+       doc_articles_url, doc_operating_url, doc_ein_letter_url,
+       created_at, updated_at
+     FROM formation_orders WHERE id = $1`,
     [orderId]
-  ) as { id: string; company_name: string; state: string; entity_type: string; status: string; doola_company_id: string | null; created_at: string }[];
+  ) as Record<string, unknown>[];
 
   if (!rows.length) return Response.json({ error: "Order not found" }, { status: 404 });
   return Response.json(rows[0]);
