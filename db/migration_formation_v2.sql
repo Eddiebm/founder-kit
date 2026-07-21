@@ -23,6 +23,7 @@ ALTER TABLE formation_orders
   ADD COLUMN IF NOT EXISTS doc_articles_url       TEXT,
   ADD COLUMN IF NOT EXISTS doc_operating_url      TEXT,
   ADD COLUMN IF NOT EXISTS doc_ein_letter_url     TEXT,
+  ADD COLUMN IF NOT EXISTS doc_ss4_url            TEXT,
 
   -- Error tracking
   ADD COLUMN IF NOT EXISTS last_error             TEXT,

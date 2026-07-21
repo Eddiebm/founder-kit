@@ -7,6 +7,7 @@ import { submitFiling } from "@/lib/delaware";
 import { applyForEin, resolveEntityClass } from "@/lib/ein";
 import { generateArticles, generateOperatingAgreement } from "@/lib/documents";
 import type { DocumentInput } from "@/lib/documents";
+import { generateSS4Html, orderToSS4 } from "@/lib/ss4";
 
 /**
  * POST /api/delaware/file
@@ -209,7 +210,24 @@ export async function POST(request: Request) {
     );
 
     const memberCount = wizardData.memberCount ? Number(wizardData.memberCount) : 1;
+    const einProviderKey = process.env.EIN_PROVIDER_API_KEY;
 
+    if (!einProviderKey) {
+      // No EIN API configured — generate SS-4 PDF for manual fax submission
+      const ss4Data = orderToSS4(order.company_name, entityType, order.state, wizardData);
+      const ss4Html = generateSS4Html(ss4Data);
+      const ss4Urls = await uploadDocuments(order.id, null, null, ss4Html);
+      await db(
+        `UPDATE formation_orders
+         SET ein_application_id = $1,
+             doc_ss4_url = $2,
+             last_error = 'EIN_MANUAL_FAX: SS-4 generated, fax to (855) 641-6935',
+             updated_at = NOW()
+         WHERE id = $3`,
+        [`ss4-manual-${order.id}`, ss4Urls.ss4Url, order.id]
+      );
+      console.warn(`EIN_PROVIDER_API_KEY not set — SS-4 generated for order ${order.id}. Fax to (855) 641-6935.`);
+    } else {
     try {
       const einApp = await applyForEin({
         legalName: order.company_name,
@@ -218,7 +236,7 @@ export async function POST(request: Request) {
         formationDate: new Date().toISOString().split("T")[0],
         responsibleParty: {
           name: wizardData.founderName ?? "Organizer",
-          ssn: wizardData.founderSSN,         // collected securely at checkout; never stored
+          ssn: wizardData.founderSSN,
           address: wizardData.founderAddress ?? "123 Main St",
           city: wizardData.founderCity ?? "Wilmington",
           state: wizardData.founderState ?? "DE",
@@ -247,6 +265,7 @@ export async function POST(request: Request) {
       );
       return Response.json({ error: "Internal server error" }, { status: 500 });
     }
+    } // end else (EIN provider configured)
   }
 
   // ── Step 4: Document generation ───────────────────────────────────────────
@@ -284,7 +303,7 @@ export async function POST(request: Request) {
   // Upload docs to storage (R2 or equivalent)
   // Wired here — actual upload implemented in /api/delaware/documents/upload
   // when R2_BUCKET_NAME env var is set.
-  const docUrls = await uploadDocuments(order.id, articlesHtml, operatingHtml);
+  const docUrls = await uploadDocuments(order.id, articlesHtml, operatingHtml, null);
 
   await db(
     `UPDATE formation_orders
@@ -311,16 +330,16 @@ export async function POST(request: Request) {
 
 async function uploadDocuments(
   orderId: string,
-  articlesHtml: string,
-  operatingHtml: string | null
-): Promise<{ articlesUrl: string | null; operatingUrl: string | null }> {
+  articlesHtml: string | null,
+  operatingHtml: string | null,
+  ss4Html?: string | null
+): Promise<{ articlesUrl: string | null; operatingUrl: string | null; ss4Url: string | null }> {
   const r2Endpoint = process.env.R2_UPLOAD_ENDPOINT;
   const r2Token = process.env.R2_API_TOKEN;
 
   if (!r2Endpoint || !r2Token) {
-    // R2 not configured — store inline reference for now
     console.warn("R2 not configured — documents generated but not uploaded");
-    return { articlesUrl: null, operatingUrl: null };
+    return { articlesUrl: null, operatingUrl: null, ss4Url: null };
   }
 
   async function upload(key: string, html: string): Promise<string> {
@@ -336,12 +355,11 @@ async function uploadDocuments(
     return `${r2Endpoint}/${key}`;
   }
 
-  const [articlesUrl, operatingUrl] = await Promise.all([
-    upload(`formations/${orderId}/articles.html`, articlesHtml),
-    operatingHtml
-      ? upload(`formations/${orderId}/operating-agreement.html`, operatingHtml)
-      : Promise.resolve(null),
+  const [articlesUrl, operatingUrl, ss4Url] = await Promise.all([
+    articlesHtml ? upload(`formations/${orderId}/articles.html`, articlesHtml) : Promise.resolve(null),
+    operatingHtml ? upload(`formations/${orderId}/operating-agreement.html`, operatingHtml) : Promise.resolve(null),
+    ss4Html ? upload(`formations/${orderId}/ss4.html`, ss4Html) : Promise.resolve(null),
   ]);
 
-  return { articlesUrl, operatingUrl };
+  return { articlesUrl, operatingUrl, ss4Url };
 }

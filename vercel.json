@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/refresh-grants",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/poll-formations",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/retry-formations",
+      "schedule": "0 * * * *"
     }
   ]
 }
